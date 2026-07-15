@@ -892,9 +892,9 @@ function updateStats(data){
   // لباس فرم
   var ordered=data.filter(function(r){return r['لباس فرم مدرسه']&&r['لباس فرم مدرسه']!=='نیاز ندارد'&&r['لباس فرم مدرسه']!=='';}).length;
   document.getElementById('statUniformOrder').textContent=toPersianNum(ordered);
-  var delivered=data.filter(function(r){return r['تحویل']==='تحویل شده';}).length;
+  var delivered=data.filter(function(r){return r['لباس فرم مدرسه']&&r['لباس فرم مدرسه']!=='نیاز ندارد'&&r['لباس فرم مدرسه']!==''&&r['تحویل']==='تحویل شده';}).length;
   document.getElementById('statUniformDone').textContent=toPersianNum(delivered);
-  document.getElementById('statUniform').textContent=toPersianNum(data.filter(function(r){return !r['تحویل']||r['تحویل']==='تحویل نشده';}).length);
+  document.getElementById('statUniform').textContent=toPersianNum(data.filter(function(r){return r['لباس فرم مدرسه']&&r['لباس فرم مدرسه']!=='نیاز ندارد'&&r['لباس فرم مدرسه']!==''&&(!r['تحویل']||r['تحویل']==='تحویل نشده');}).length);
   var paid=data.reduce(function(s,r){return s+(parseFloat(r['مبلغ پرداخت شده']||r['مبلغ پرداخت شده']||0)||0);},0);
   document.getElementById('statPaid').textContent=toPersianNum(Math.round(paid).toLocaleString('en-US'));
   var debt=data.reduce(function(s,r){return s+(parseFloat(r['مبلغ مانده']||0)||0);},0);
