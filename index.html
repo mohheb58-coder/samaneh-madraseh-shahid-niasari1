@@ -942,16 +942,23 @@ function updateDashStats(data){
   payeList.forEach(function(p,i){
     var total=data.filter(function(r){return r['پایه']===p;}).length;
     var classes=Object.values(classMap).filter(function(x){return x.paye===p;})
-      .sort(function(a,b){return a.klass.localeCompare(b.klass);});
+      .sort(function(a,b){
+        if(a.klass==='—')return 1;
+        if(b.klass==='—')return -1;
+        return a.klass.localeCompare(b.klass);
+      });
     var tc=txColors[p];
     var bg=bgColors[p];
 
     var tableRows=classes.map(function(cl,ci){
-      return '<tr>'
-        +'<td style="text-align:center;font-weight:700;color:'+tc+';font-size:14px">'+(ci+1)+'</td>'
-        +'<td style="text-align:center;font-weight:700;font-size:14px">'+cl.klass+'</td>'
-        +'<td style="text-align:center;font-weight:800;color:'+tc+';font-size:14px">'+toPersianNum(cl.count)+'</td>'
-        +'<td style="text-align:center"><button onclick="quickPrintClass(\''+p+'\',\''+cl.klass+'\')" style="background:'+tc+';color:#fff;border:none;border-radius:6px;padding:4px 10px;font-family:Vazirmatn,sans-serif;font-size:12px;cursor:pointer">چاپ</button></td>'
+      var isNoClass=(cl.klass==='—');
+      var rowStyle=isNoClass?' style="background:#fef2f2"':'';
+      var klassColor=isNoClass?'color:#b91c1c;':'';
+      return '<tr'+rowStyle+'>'
+        +'<td style="box-sizing:border-box;padding:8px 6px;text-align:center;font-weight:700;color:'+tc+';font-size:14px;width:22%">'+p+'</td>'
+        +'<td style="box-sizing:border-box;padding:8px 6px;text-align:center;font-weight:700;font-size:14px;width:26%;'+klassColor+'">'+cl.klass+'</td>'
+        +'<td style="box-sizing:border-box;padding:8px 6px;text-align:center;font-weight:800;color:'+tc+';font-size:14px;width:22%">'+toPersianNum(cl.count)+'</td>'
+        +'<td style="box-sizing:border-box;padding:8px 6px;text-align:center;width:30%"><button onclick="quickPrintClass(\''+p+'\',\''+cl.klass+'\')" style="background:'+tc+';color:#fff;border:none;border-radius:6px;padding:4px 10px;font-family:Vazirmatn,sans-serif;font-size:12px;cursor:pointer">چاپ</button></td>'
         +'</tr>';
     }).join('');
 
@@ -963,12 +970,13 @@ function updateDashStats(data){
       +'<div style="font-size:12px;color:'+tc+';opacity:.7;margin-top:2px">دانش‌آموز</div>'
       +'</div>'
       // جدول کلاس‌ها
-      +'<table style="width:100%;border-collapse:collapse;font-family:Vazirmatn,sans-serif;font-size:13px">'
+      +'<table style="width:100%;border-collapse:collapse;table-layout:fixed;font-family:Vazirmatn,sans-serif;font-size:13px">'
+      +'<colgroup><col style="width:22%"><col style="width:26%"><col style="width:22%"><col style="width:30%"></colgroup>'
       +'<thead><tr style="background:'+bg+'">'
-      +'<th style="padding:8px 6px;border-bottom:1px solid '+tc+'30;color:'+tc+'">ردیف</th>'
-      +'<th style="padding:8px 6px;border-bottom:1px solid '+tc+'30;color:'+tc+'">کلاس</th>'
-      +'<th style="padding:8px 6px;border-bottom:1px solid '+tc+'30;color:'+tc+'">تعداد</th>'
-      +'<th style="padding:8px 6px;border-bottom:1px solid '+tc+'30;color:'+tc+'">چاپ</th>'
+      +'<th style="box-sizing:border-box;padding:8px 6px;text-align:center;white-space:normal;border-bottom:1px solid '+tc+'30;color:'+tc+'">پایه</th>'
+      +'<th style="box-sizing:border-box;padding:8px 6px;text-align:center;white-space:normal;border-bottom:1px solid '+tc+'30;color:'+tc+'">کلاس</th>'
+      +'<th style="box-sizing:border-box;padding:8px 6px;text-align:center;white-space:normal;border-bottom:1px solid '+tc+'30;color:'+tc+'">تعداد</th>'
+      +'<th style="box-sizing:border-box;padding:8px 6px;text-align:center;white-space:normal;border-bottom:1px solid '+tc+'30;color:'+tc+'">چاپ</th>'
       +'</tr></thead>'
       +'<tbody>'+(tableRows||'<tr><td colspan="4" style="text-align:center;padding:14px;color:#aaa;font-size:12px">— کلاسی ثبت نشده —</td></tr>')+'</tbody>'
       +'</table>'
