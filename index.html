@@ -1744,14 +1744,18 @@ function printStudentForm(){
 
 function updateReportClasses(){
   var paye=document.getElementById('reportPaye').value;
-  var cls=[...new Set(allData.filter(function(r){return !paye||r['پایه']===paye;}).map(function(r){return r['شماره کلاس'];}).filter(Boolean))].sort(function(a,b){return a.localeCompare(b,'fa');});
-  document.getElementById('reportClass').innerHTML='<option value="">همه کلاس‌ها</option>'+cls.map(function(c){return '<option>'+c+'</option>';}).join('');
+  var scoped=allData.filter(function(r){return !paye||r['پایه']===paye;});
+  var cls=[...new Set(scoped.map(function(r){return r['شماره کلاس'];}).filter(Boolean))].sort(function(a,b){return a.localeCompare(b,'fa');});
+  var withoutClassCount=scoped.filter(function(r){return !r['شماره کلاس'];}).length;
+  var html='<option value="">همه کلاس‌ها</option>'+cls.map(function(c){return '<option>'+c+'</option>';}).join('');
+  if(withoutClassCount>0){html+='<option value="—">بدون کلاس ('+toPersianNum(withoutClassCount)+')</option>';}
+  document.getElementById('reportClass').innerHTML=html;
 }
 
 function showClassReport(){
   var paye=document.getElementById('reportPaye').value,klass=document.getElementById('reportClass').value;
   rptSortCol='نام خانوادگی'; rptSortDir=1;
-  classReportData=allData.filter(function(r){return(!paye||r['پایه']===paye)&&(!klass||r['شماره کلاس']===klass);});
+  classReportData=allData.filter(function(r){return(!paye||r['پایه']===paye)&&(!klass||(klass==='—'?!r['شماره کلاس']:r['شماره کلاس']===klass));});
   renderClassReport();
 }
 function rptSortBy(col){
@@ -1770,7 +1774,7 @@ function renderClassReport(){
     });
   }
   var paye=document.getElementById('reportPaye').value,klass=document.getElementById('reportClass').value;
-  var title=(paye?'پایه '+paye:'همه پایه‌ها')+(klass?' — کلاس '+klass:'');
+  var title=(paye?'پایه '+paye:'همه پایه‌ها')+(klass?' — '+(klass==='—'?'بدون کلاس':'کلاس '+klass):'');
   var sortInfo=rptSortCol?'<span style="font-size:11px;color:var(--text-muted);font-weight:400;margin-right:8px">مرتب: '+rptSortCol+(rptSortDir===1?' ▲':' ▼')+'</span>':'';
   var rows=classReportData.map(function(r,i){
     return '<tr><td style="text-align:center">'+(i+1)+'</td>'+sf.map(function(fn){return '<td>'+(r[fn]||'—')+'</td>';}).join('')+'</tr>';
@@ -1796,7 +1800,7 @@ function doPrintClassReport(size,orient){
   var paye=document.getElementById('reportPaye').value,klass=document.getElementById('reportClass').value;
   var sf=reportSelectedFields.filter(function(fn){return allFields.find(function(f){return f.name===fn&&f.visible!==false;});});
   if(!sf.length){alert('فیلدی انتخاب نشده');return;}
-  var title=(paye?'پایه '+paye:'همه پایه‌ها')+(klass?' — کلاس '+klass:'');
+  var title=(paye?'پایه '+paye:'همه پایه‌ها')+(klass?' — '+(klass==='—'?'بدون کلاس':'کلاس '+klass):'');
   
   var content='<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8">'+
     '<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">'+
