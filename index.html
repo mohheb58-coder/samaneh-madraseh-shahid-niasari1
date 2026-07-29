@@ -272,15 +272,12 @@ tbody td{padding:10px 13px;white-space:nowrap}
             <div class="uni-card uc-paid"><div class="uc-val" id="statPaid">—</div><div class="uc-lbl">مبلغ پرداخت شده</div></div>
             <div class="uni-card uc-debt"><div class="uc-val" id="statDebt">—</div><div class="uc-lbl">مبلغ مانده</div></div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-            <div>
-              <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px">نوع لباس و سایز</div>
-              <div id="uniformTypeStats"></div>
+          <div style="margin-top:4px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <div style="font-size:13px;font-weight:700;color:var(--primary)">📊 جدول توزیع لباس فرم بر اساس نوع و سایز</div>
+              <button onclick="printUniformTable()" style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:5px;font-weight:600;box-shadow:0 2px 6px rgba(99,102,241,.3)">🖨️ چاپ جدول</button>
             </div>
-            <div>
-              <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px">توزیع سایزها</div>
-              <div id="uniformSizeStats"></div>
-            </div>
+            <div id="uniformCrossStats" style="overflow-x:auto"></div>
           </div>
         </div>
 
@@ -902,18 +899,33 @@ function updateStats(data){
   document.getElementById('statPaid').textContent=toPersianNum(Math.round(paid).toLocaleString('en-US'));
   var debt=data.reduce(function(s,r){return s+(parseFloat(r['مبلغ مانده']||0)||0);},0);
   document.getElementById('statDebt').textContent=toPersianNum(Math.round(debt).toLocaleString('en-US'));
-  // نوع لباس
-  var typeMap={};
-  data.forEach(function(r){var t=r['لباس فرم مدرسه']||'';if(t&&t!=='نیاز ندارد'){typeMap[t]=(typeMap[t]||0)+1;}});
-  document.getElementById('uniformTypeStats').innerHTML=Object.keys(typeMap).length
-    ?Object.keys(typeMap).map(function(t){return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #f0f4fa;font-size:12px"><span>'+t+'</span><strong>'+toPersianNum(typeMap[t])+'</strong></div>';}).join('')
-    :'<div style="color:var(--text-muted);font-size:12px">داده‌ای موجود نیست</div>';
-  // سایزها
-  var sizeMap={};
-  data.forEach(function(r){var s=r['سایز لباس']||'';if(s){sizeMap[s]=(sizeMap[s]||0)+1;}});
-  document.getElementById('uniformSizeStats').innerHTML=Object.keys(sizeMap).length
-    ?Object.keys(sizeMap).sort().map(function(s){return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #f0f4fa;font-size:12px"><span>'+s+'</span><strong>'+toPersianNum(sizeMap[s])+'</strong></div>';}).join('')
-    :'<div style="color:var(--text-muted);font-size:12px">داده‌ای موجود نیست</div>';
+  // جدول گرافیکی نوع لباس × سایز — روپوش و شلوار اول
+  var UNIFORM_TYPES=['روپوش و شلوار','روپوش تک','شلوار تک'];
+  var UNIFORM_COLORS={
+    'روپوش و شلوار':{bg:'#ede9fe',border:'#7c3aed',text:'#5b21b6',badge:'#7c3aed',icon:'👔'},
+    'روپوش تک':     {bg:'#dbeafe',border:'#2563eb',text:'#1d4ed8',badge:'#2563eb',icon:'👕'},
+    'شلوار تک':     {bg:'#dcfce7',border:'#16a34a',text:'#15803d',badge:'#16a34a',icon:'👖'}
+  };
+  var SIZE_ORDER=['سایز0','سایز1','سایز2','سایز3','سایز4','سایز5','سایز6','سایز7','سایز8','سایز9'];
+  var crossMap={};var activeSizes={};
+  UNIFORM_TYPES.forEach(function(t){crossMap[t]={};});
+  data.forEach(function(r){
+    var t=(r['لباس فرم مدرسه']||'').trim();
+    var s=(r['سایز لباس']||'').trim();
+    if(!t||t==='نیاز ندارد'||!s)return;
+    if(!crossMap[t])crossMap[t]={};
+    crossMap[t][s]=(crossMap[t][s]||0)+1;
+    activeSizes[s]=true;
+  });
+  var usedSizes=SIZE_ORDER.filter(function(s){return activeSizes[s];});
+  Object.keys(activeSizes).forEach(function(s){if(SIZE_ORDER.indexOf(s)===-1)usedSizes.push(s);});
+  window._lastUniformCross={types:UNIFORM_TYPES,colors:UNIFORM_COLORS,sizes:usedSizes,map:crossMap};
+
+  if(!usedSizes.length){
+    document.getElementById('uniformCrossStats').innerHTML='<div style="color:var(--text-muted);font-size:13px;padding:12px 0">داده‌ای ثبت نشده است</div>';
+  }else{
+    document.getElementById('uniformCrossStats').innerHTML=buildUniformTableHTML(false);
+  }
 }
 
 function updateDashStats(data){
@@ -3133,6 +3145,131 @@ function doChangeSettingsPassword(){
   localStorage.setItem('settingsPassword', newPwd);
   closeChangePwdModal();
   alert('✅ رمز تنظیمات با موفقیت تغییر کرد');
+}
+
+// ===== جدول گرافیکی لباس فرم =====
+function buildUniformTableHTML(forPrint){
+  var d=window._lastUniformCross;
+  if(!d||!d.sizes.length)return '';
+  var TYPES=d.types, COLORS=d.colors, SIZES=d.sizes, MAP=d.map;
+
+  // محاسبه جمع‌ها
+  var rowTotals={}, colTotals={}, grand=0;
+  TYPES.forEach(function(t){
+    rowTotals[t]=0;
+    SIZES.forEach(function(s){
+      var c=(MAP[t]&&MAP[t][s])||0;
+      rowTotals[t]+=c;
+      colTotals[s]=(colTotals[s]||0)+c;
+      grand+=c;
+    });
+  });
+
+  var fnt=forPrint?'Tahoma,Arial':'inherit';
+  var html='<div style="font-family:'+fnt+';direction:rtl">';
+
+  // --- جدول اصلی ---
+  html+='<table style="border-collapse:separate;border-spacing:0;width:100%;font-size:'+(forPrint?'10pt':'12px')+';direction:rtl;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">';
+
+  // هدر
+  html+='<thead><tr>';
+  html+='<th style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;padding:'+(forPrint?'8px 10px':'10px 14px')+';text-align:right;font-weight:700;white-space:nowrap;border-bottom:2px solid #1e40af">نوع لباس</th>';
+  SIZES.forEach(function(s,i){
+    var isLast=i===SIZES.length-1;
+    html+='<th style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;padding:'+(forPrint?'8px 6px':'10px 10px')+';text-align:center;font-weight:700;border-right:1px solid rgba(255,255,255,.2)'+(isLast?';border-left:none':'')+';border-bottom:2px solid #1e40af">'+s+'</th>';
+  });
+  html+='<th style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;padding:'+(forPrint?'8px 10px':'10px 14px')+';text-align:center;font-weight:700;border-right:1px solid rgba(255,255,255,.2);border-bottom:2px solid #1e40af">جمع</th>';
+  html+='</tr></thead><tbody>';
+
+  // ردیف‌های لباس
+  TYPES.forEach(function(t,ri){
+    var cl=COLORS[t]||{bg:'#f8faff',border:'#94a3b8',text:'#334155',badge:'#64748b',icon:'👔'};
+    var isLastRow=ri===TYPES.length-1;
+    html+='<tr>';
+
+    // ستون نام
+    html+='<td style="background:'+cl.bg+';padding:'+(forPrint?'8px 10px':'11px 14px')+';border-bottom:'+(isLastRow?'none':'1px solid #e2e8f0')+';border-right:3px solid '+cl.border+';white-space:nowrap">';
+    html+='<div style="display:flex;align-items:center;gap:7px">';
+    html+='<span style="font-size:'+(forPrint?'14pt':'18px')+'">'+cl.icon+'</span>';
+    html+='<span style="font-weight:700;color:'+cl.text+';font-size:'+(forPrint?'10pt':'13px')+'">'+t+'</span>';
+    if(rowTotals[t]>0){html+='<span style="background:'+cl.badge+';color:#fff;border-radius:20px;padding:1px 8px;font-size:'+(forPrint?'8pt':'10px')+';font-weight:700;margin-right:2px">'+toPersianNum(rowTotals[t])+'</span>';}
+    html+='</div></td>';
+
+    // سلول‌های سایز
+    SIZES.forEach(function(s,ci){
+      var cnt=(MAP[t]&&MAP[t][s])||0;
+      var isLastCol=ci===SIZES.length-1;
+      var cellBg=cnt>0?'#fff':'#f9fafb';
+      html+='<td style="background:'+cellBg+';padding:'+(forPrint?'8px 6px':'11px 10px')+';text-align:center;border-bottom:'+(isLastRow?'none':'1px solid #e2e8f0')+';border-right:1px solid #e2e8f0'+(isLastCol?';border-left:none':'')+'">';
+      if(cnt>0){
+        // نوار پیشرفت کوچک
+        var pct=grand>0?Math.round(cnt/grand*100):0;
+        html+='<div style="display:flex;flex-direction:column;align-items:center;gap:3px">';
+        html+='<strong style="color:'+cl.text+';font-size:'+(forPrint?'11pt':'14px')+'">'+toPersianNum(cnt)+'</strong>';
+        if(!forPrint){
+          html+='<div style="width:32px;height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden">';
+          html+='<div style="width:'+pct+'%;height:100%;background:'+cl.badge+';border-radius:2px"></div></div>';
+        }
+        html+='<span style="font-size:'+(forPrint?'8pt':'10px')+';color:#94a3b8">'+toPersianNum(pct)+'٪</span>';
+        html+='</div>';
+      }else{
+        html+='<span style="color:#d1d5db;font-size:'+(forPrint?'10pt':'13px')+'">—</span>';
+      }
+      html+='</td>';
+    });
+
+    // ستون جمع ردیف
+    html+='<td style="background:'+cl.bg+';padding:'+(forPrint?'8px 10px':'11px 14px')+';text-align:center;border-bottom:'+(isLastRow?'none':'1px solid #e2e8f0')+';border-right:1px solid #e2e8f0;font-weight:800;font-size:'+(forPrint?'11pt':'15px')+';color:'+cl.text+'">'+toPersianNum(rowTotals[t])+'</td>';
+    html+='</tr>';
+  });
+
+  // ردیف جمع کل
+  html+='<tr style="background:linear-gradient(135deg,#1e3a8a,#1e40af)">';
+  html+='<td style="padding:'+(forPrint?'8px 10px':'11px 14px')+';font-weight:700;color:#fff;white-space:nowrap;border-top:2px solid #1e40af">جمع کل</td>';
+  SIZES.forEach(function(s,ci){
+    var ct=colTotals[s]||0;
+    var isLastCol=ci===SIZES.length-1;
+    html+='<td style="padding:'+(forPrint?'8px 6px':'11px 10px')+';text-align:center;border-top:2px solid #1e40af;border-right:1px solid rgba(255,255,255,.15)'+(isLastCol?'':'')+'">';
+    html+=(ct>0?'<strong style="color:#fbbf24;font-size:'+(forPrint?'11pt':'14px')+'">'+toPersianNum(ct)+'</strong>':'<span style="color:rgba(255,255,255,.3)">—</span>');
+    html+='</td>';
+  });
+  html+='<td style="padding:'+(forPrint?'8px 10px':'11px 14px')+';text-align:center;border-top:2px solid #1e40af;border-right:1px solid rgba(255,255,255,.15)"><strong style="color:#fbbf24;font-size:'+(forPrint?'13pt':'17px')+'">'+toPersianNum(grand)+'</strong></td>';
+  html+='</tr></tbody></table></div>';
+  return html;
+}
+
+function printUniformTable(){
+  var d=window._lastUniformCross;
+  if(!d||!d.sizes.length){alert('ابتدا داده ثبت کنید');return;}
+  var today=new Date();
+  var dateStr=today.toLocaleDateString('fa-IR');
+  var innerHtml=buildUniformTableHTML(true);
+  var w=window.open('','_blank','width=900,height=700');
+  w.document.write('<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8">');
+  w.document.write('<title>جدول لباس فرم — دبستان شهید نیاسری ۱</title>');
+  w.document.write('<style>');
+  w.document.write('@page{size:A4 landscape;margin:12mm 15mm}');
+  w.document.write('body{font-family:Tahoma,Arial;direction:rtl;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;color:#1e293b}');
+  w.document.write('.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #3b82f6}');
+  w.document.write('.school-name{font-size:14pt;font-weight:900;color:#1e40af}');
+  w.document.write('.report-title{font-size:12pt;font-weight:700;color:#3b82f6;text-align:center}');
+  w.document.write('.date-info{font-size:9pt;color:#64748b;text-align:left}');
+  w.document.write('table{border-collapse:separate!important;border-spacing:0!important;width:100%!important;page-break-inside:avoid}');
+  w.document.write('thead th{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}');
+  w.document.write('tr td:first-child{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}');
+  w.document.write('tr:last-child td{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}');
+  w.document.write('.footer{margin-top:14px;font-size:8pt;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0;padding-top:8px}');
+  w.document.write('</style></head><body>');
+  w.document.write('<div class="header">');
+  w.document.write('<div class="school-name">🏫 دبستان پسرانه شهید نیاسری ۱</div>');
+  w.document.write('<div class="report-title">📊 جدول توزیع لباس فرم بر اساس نوع و سایز</div>');
+  w.document.write('<div class="date-info">تاریخ چاپ: '+dateStr+'</div>');
+  w.document.write('</div>');
+  w.document.write(innerHtml);
+  w.document.write('<div class="footer">این گزارش توسط سامانه مدیریت مدرسه شهید نیاسری ۱ تهیه شده است</div>');
+  w.document.write('</body></html>');
+  w.document.close();
+  setTimeout(function(){w.focus();w.print();},600);
 }
 </script>
 </body>
