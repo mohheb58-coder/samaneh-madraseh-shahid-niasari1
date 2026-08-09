@@ -311,7 +311,7 @@ tbody td{padding:10px 13px;white-space:nowrap}
         <button class="btn btn-orange" onclick="printSelected()">🖨️ پرینت انتخاب شده‌ها</button>
         <button class="btn btn-blue" onclick="exportExcelAll()">📥 خروجی Excel</button>
         <button class="btn btn-gray" onclick="toggleColPanel()">📋 انتخاب فیلدها</button>
-        <button class="btn btn-purple" onclick="printCurrentList()">🖨️ چاپ لیست</button>
+        <button class="btn btn-purple" onclick="printCurrentList()" title="همان ستون‌های نمایش‌داده‌شده در جدول چاپ می‌شوند — از تنظیمات ستون‌ها قابل تغییرند">🖨️ چاپ لیست</button>
         <button class="btn btn-green" onclick="openBulkPrintModal()" style="background:linear-gradient(135deg,#0f766e,#0d9488)">📄 چاپ گروهی فرم‌ها</button>
       </div>
       <div id="colPanel" style="display:none;background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:16px 18px;margin-bottom:14px;border:1.5px solid #bfdbfe">
@@ -372,6 +372,31 @@ tbody td{padding:10px 13px;white-space:nowrap}
         <div class="settings-card" style="background:#f0f6ff;border:1.5px solid #bfdbfe">
           <h3 style="font-size:13px">🗂️ فیلدهای نمایش در گزارش</h3>
           <div class="check-grid" id="reportFieldsGrid"></div>
+        </div>
+        <div class="settings-card" style="background:#fff7ed;border:1.5px solid #fed7aa">
+          <h3 style="font-size:13px">✏️ ستون‌های خالی برای چاپ (تیک زدن / یادداشت دستی)</h3>
+          <p style="font-size:11px;color:var(--text-muted);margin-bottom:10px">این ستون‌ها فقط در نسخه چاپی اضافه می‌شوند و خالی هستند تا هنگام چاپ با دست پر شوند (مثلاً: خیلی خوب، نیاز به تلاش، وضعیت انضباط و ...)</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
+            <div><label style="font-size:12px;font-weight:600;color:var(--primary);display:block;margin-bottom:4px">عنوان ستون</label>
+              <input type="text" id="newExtraColTitle" placeholder="مثلاً: وضعیت انضباط" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:Vazirmatn,sans-serif;font-size:13px;width:190px" onkeydown="if(event.key==='Enter')addReportExtraCol()">
+            </div>
+            <div><label style="font-size:12px;font-weight:600;color:var(--primary);display:block;margin-bottom:4px">عرض ستون</label>
+              <select id="newExtraColWidth" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:Vazirmatn,sans-serif;font-size:13px">
+                <option value="0.5">باریک (تیک زدن)</option>
+                <option value="4" selected>متوسط</option>
+                <option value="6">عریض (یادداشت)</option>
+              </select>
+            </div>
+            <div><label style="font-size:12px;font-weight:600;color:var(--primary);display:block;margin-bottom:4px">اندازه عنوان</label>
+              <select id="newExtraColFontSize" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:Vazirmatn,sans-serif;font-size:13px">
+                <option value="8" selected>عادی</option>
+                <option value="6">کوچک</option>
+                <option value="5">خیلی کوچک</option>
+              </select>
+            </div>
+            <button class="btn btn-orange" onclick="addReportExtraCol()">➕ افزودن ستون</button>
+          </div>
+          <div id="reportExtraColsList" style="display:flex;gap:8px;flex-wrap:wrap"></div>
         </div>
         <div id="classReportArea"><div style="text-align:center;padding:30px;color:var(--text-muted)">پایه را انتخاب کنید</div></div>
       </div>
@@ -657,6 +682,7 @@ var reqFields = loadLS('reqFields', ['نام','نام خانوادگی','کد م
 var lockedFields = loadLS('lockedFields', ['لباس فرم مدرسه','سایز لباس','مبلغ پرداخت شده','مبلغ مانده','تحویل']);
 var photoEnabled = loadLS('photoEnabled', false);
 var reportSelectedFields = loadLS('reportSelectedFields', ['نام','نام خانوادگی','کد ملی','شماره کلاس','موبایل پدر','موبایل شاد','لباس فرم مدرسه','سایز لباس','تحویل']);
+var reportExtraCols = loadLS('reportExtraCols', []);
 
 var allData=[], filteredData=[], currentRowIndex=-1, classReportData=[];
 var sortCol='', sortDir=1;
@@ -677,7 +703,7 @@ function initAdmin() {
   if(SHEETS_URL){ document.getElementById('sheetsUrlInput').value=SHEETS_URL; document.getElementById('urlStatus').textContent='✅'; }
   document.getElementById('photoEnabled').checked = !!photoEnabled;
   document.getElementById('photoEnabled').addEventListener('change', function(){ photoEnabled=this.checked; try{localStorage.setItem('photoEnabled',JSON.stringify(this.checked));}catch(e){} });
-  buildSettingsUI(); buildReportFieldsGrid(); loadData(); startLiveClock();
+  buildSettingsUI(); buildReportFieldsGrid(); buildReportExtraColsUI(); loadData(); startLiveClock();
 }
 
 function esc(s){ return s.replace(/[\s؟?]/g,'_'); }
@@ -712,7 +738,7 @@ function buildSettingsUI() {
   }).join('');
 }
 
-function toggleVis(i){ allFields[i].visible=!allFields[i].visible; try{localStorage.setItem('allFields',JSON.stringify(allFields));}catch(e){} buildSettingsUI(); buildReportFieldsGrid(); }
+function toggleVis(i){ allFields[i].visible=!allFields[i].visible; try{localStorage.setItem('allFields',JSON.stringify(allFields));}catch(e){} buildSettingsUI(); buildReportFieldsGrid(); buildReportExtraColsUI(); }
 function toggleReq(el,name){ if(el.checked){if(!reqFields.includes(name))reqFields.push(name);}else{reqFields=reqFields.filter(x=>x!==name);} var l=document.getElementById('ri_'+esc(name));if(l)l.className=el.checked?'check-item on-req':'check-item'; }
 function toggleLock(el,name){ if(el.checked){if(!lockedFields.includes(name))lockedFields.push(name);}else{lockedFields=lockedFields.filter(x=>x!==name);} var l=document.getElementById('li_'+esc(name));if(l)l.className=el.checked?'check-item on-lock':'check-item'; }
 function toggleAddForm(){ document.getElementById('addFieldForm').classList.toggle('open'); }
@@ -721,7 +747,7 @@ function moveField(i, dir){
   if(ni<0||ni>=allFields.length)return;
   var tmp=allFields[i]; allFields[i]=allFields[ni]; allFields[ni]=tmp;
   try{localStorage.setItem('allFields',JSON.stringify(allFields));}catch(e){}
-  buildSettingsUI(); buildReportFieldsGrid();
+  buildSettingsUI(); buildReportFieldsGrid(); buildReportExtraColsUI();
 }
 
 function addNewField(){
@@ -737,7 +763,7 @@ function addNewField(){
   try{localStorage.setItem('allFields',JSON.stringify(allFields));}catch(e){}
   document.getElementById('nfName').value=''; document.getElementById('nfOpts').value='';
   document.getElementById('addFieldForm').classList.remove('open');
-  buildSettingsUI(); buildReportFieldsGrid();
+  buildSettingsUI(); buildReportFieldsGrid(); buildReportExtraColsUI();
   alert('فیلد "'+name+'" اضافه شد. تنظیمات را ذخیره کنید.');
 }
 
@@ -748,7 +774,7 @@ function delField(i){
   if(!confirm(msg))return;
   allFields.splice(i,1);
   try{localStorage.setItem('allFields',JSON.stringify(allFields));}catch(e){}
-  buildSettingsUI(); buildReportFieldsGrid();
+  buildSettingsUI(); buildReportFieldsGrid(); buildReportExtraColsUI();
 }
 
 function openEF(i){ document.getElementById('efIdx').value=i; document.getElementById('efName').value=allFields[i].label||allFields[i].name; document.getElementById('efOpts').value=(allFields[i].opts||[]).join(','); document.getElementById('efModal').classList.add('open'); }
@@ -789,6 +815,64 @@ function buildReportFieldsGrid(){
     return '<label class="rfc-item"><input type="checkbox" '+(on?'checked':'')+' style="accent-color:var(--primary)" onchange="toggleRF(this,\''+f.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+'\')"> '+(f.label||f.name)+'</label>';
   }).join('');
 }
+function buildReportExtraColsUI(){
+  var box=document.getElementById('reportExtraColsList');
+  if(!box)return;
+  if(!reportExtraCols.length){box.innerHTML='<span style="font-size:12px;color:var(--text-muted)">ستون خالی اضافه نشده</span>';return;}
+  box.innerHTML=reportExtraCols.map(function(c,i){
+    var lbl=c.title?c.title:'<span style="color:#c2410c;font-style:italic">(بدون عنوان)</span>';
+    return '<span style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #fdba74;border-radius:20px;padding:5px 6px 5px 12px;font-size:12px;font-weight:600;color:#c2410c">'+lbl+
+      '<button onclick="editReportExtraCol('+i+')" style="background:#bfdbfe;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:10px;color:#1e3a8a;line-height:1" title="ویرایش">✏️</button>'+
+      '<button onclick="removeReportExtraCol('+i+')" style="background:#fed7aa;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:11px;color:#9a3412;line-height:1" title="حذف">✕</button></span>';
+  }).join('');
+}
+function addReportExtraCol(){
+  var inp=document.getElementById('newExtraColTitle');
+  var t=inp.value.trim();
+  var w=document.getElementById('newExtraColWidth').value;
+  var fs=document.getElementById('newExtraColFontSize').value;
+  reportExtraCols.push({title:t,width:w,fontSize:fs});
+  try{localStorage.setItem('reportExtraCols',JSON.stringify(reportExtraCols));}catch(e){}
+  inp.value='';
+  buildReportExtraColsUI();
+}
+function editReportExtraCol(i){
+  var cur=reportExtraCols[i];
+  var ov=document.createElement('div');
+  ov.id='editColOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  ov.innerHTML='<div style="background:#fff;border-radius:16px;padding:22px 24px;min-width:260px;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;box-shadow:0 8px 40px rgba(0,0,0,.3)">'
+    +'<h3 style="font-size:14px;font-weight:800;color:#c2410c;margin-bottom:14px;text-align:center">✏️ ویرایش ستون</h3>'
+    +'<div style="margin-bottom:12px"><label style="font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:4px">عنوان ستون</label>'
+    +'<input type="text" id="ecTitle" value="'+String(cur.title||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')+'" placeholder="(بدون عنوان)" style="width:100%;padding:8px 10px;border:1.5px solid #fed7aa;border-radius:8px;font-family:Vazirmatn,sans-serif;font-size:13px;box-sizing:border-box"></div>'
+    +'<div style="margin-bottom:12px"><label style="font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:4px">عرض ستون</label>'
+    +'<select id="ecWidth" style="width:100%;padding:8px 10px;border:1.5px solid #fed7aa;border-radius:8px;font-family:Vazirmatn,sans-serif;font-size:13px">'
+    +'<option value="0.5">باریک (تیک زدن)</option><option value="4">متوسط</option><option value="6">عریض (یادداشت)</option></select></div>'
+    +'<div style="margin-bottom:18px"><label style="font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:4px">اندازه عنوان</label>'
+    +'<select id="ecFontSize" style="width:100%;padding:8px 10px;border:1.5px solid #fed7aa;border-radius:8px;font-family:Vazirmatn,sans-serif;font-size:13px">'
+    +'<option value="8">عادی</option><option value="6">کوچک</option><option value="5">خیلی کوچک</option></select></div>'
+    +'<div style="display:flex;gap:8px">'
+    +'<button id="ecSave" style="flex:1;padding:10px;background:#c2410c;color:#fff;border:none;border-radius:8px;font-family:Vazirmatn,sans-serif;font-size:13px;font-weight:700;cursor:pointer">ذخیره</button>'
+    +'<button id="ecCancel" style="padding:10px 16px;background:#f1f5f9;color:#555;border:none;border-radius:8px;font-family:Vazirmatn,sans-serif;font-size:13px;cursor:pointer">انصراف</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+  document.getElementById('ecWidth').value=String(cur.width||'4');
+  document.getElementById('ecFontSize').value=String(cur.fontSize||'8');
+  document.getElementById('ecCancel').onclick=function(){document.body.removeChild(ov);};
+  document.getElementById('ecSave').onclick=function(){
+    cur.title=document.getElementById('ecTitle').value.trim();
+    cur.width=document.getElementById('ecWidth').value;
+    cur.fontSize=document.getElementById('ecFontSize').value;
+    try{localStorage.setItem('reportExtraCols',JSON.stringify(reportExtraCols));}catch(e){}
+    document.body.removeChild(ov);
+    buildReportExtraColsUI();
+  };
+}
+function removeReportExtraCol(i){
+  reportExtraCols.splice(i,1);
+  try{localStorage.setItem('reportExtraCols',JSON.stringify(reportExtraCols));}catch(e){}
+  buildReportExtraColsUI();
+}
 function toggleAllRF(el){
   var vis=allFields.filter(function(f){return f.visible!==false&&f.type!=='dob';});
   var extraDOB=[{name:'سال تولد'},{name:'ماه تولد'},{name:'روز تولد'}];
@@ -796,7 +880,7 @@ function toggleAllRF(el){
   if(el.checked){reportSelectedFields=allVis.map(function(f){return f.name;});}
   else{reportSelectedFields=[];}
   try{localStorage.setItem('reportSelectedFields',JSON.stringify(reportSelectedFields));}catch(e){}
-  buildReportFieldsGrid();
+  buildReportFieldsGrid(); buildReportExtraColsUI();
 }
 function toggleRF(el,name){ if(el.checked){if(!reportSelectedFields.includes(name))reportSelectedFields.push(name);}else{reportSelectedFields=reportSelectedFields.filter(x=>x!==name);} try{localStorage.setItem('reportSelectedFields',JSON.stringify(reportSelectedFields));}catch(e){} }
 
@@ -1069,51 +1153,62 @@ function filterTable(){
 function printCurrentList(){
   var data=filteredData.length?filteredData:allData;
   if(!data.length){alert('داده‌ای برای چاپ وجود ندارد');return;}
-  showPrintDialog(function(size,orient){
-    doPrintCurrentList(data,size,orient);
-  });
-}
-function doPrintCurrentList(data,size,orient){
-  var cols=studentCols.filter(function(c){return c!=='عملیات'&&c!=='عکس';});
-  var filterInfo=[];
   var q=document.getElementById('searchInput').value.trim();
   var paye=document.getElementById('filterPaye').value;
   var klass=document.getElementById('filterClass').value;
+  var filterInfo=[];
+  if(paye)filterInfo.push('پایه '+paye);
+  if(klass)filterInfo.push('کلاس '+klass);
   if(q)filterInfo.push('جستجو: '+q);
-  if(paye)filterInfo.push('پایه: '+paye);
-  if(klass)filterInfo.push('کلاس: '+klass);
-  var filterText=filterInfo.length?(' | فیلتر: '+filterInfo.join(' | ')):'';
-  var cw={};
-  cols.forEach(function(c){
-    var mx=(c==='#'?2:c.length);
-    data.forEach(function(r){var v=String(c==='#'?999:(r[c]||''));if(v.length>mx)mx=v.length;});
-    cw[c]=Math.min(mx,30);
-  });
-  var tot=Object.values(cw).reduce(function(s,v){return s+v;},0);
-  var thead='<tr style="background:#1a4a7a;color:#fff">'
-    +cols.map(function(c){return '<th style="width:'+Math.round(cw[c]/tot*100)+'%">'+(c==='#'?'ردیف':c)+'</th>';}).join('')+'</tr>';
+  var defTitle='لیست دانش‌آموزان'+(filterInfo.length?' — '+filterInfo.join(' | '):'');
+  showPrintDialog(function(size,orient,title,includeExtra){
+    doPrintCurrentList(data,size,orient,title,includeExtra);
+  },{titleDefault:defTitle,showExtraColsToggle:true});
+}
+function doPrintCurrentList(data,size,orient,customTitle,includeExtra){
+  var sf=studentCols.filter(function(c){return c!=='#'&&c!=='عکس'&&c!=='عملیات'&&c!=='انتخاب برای چاپ';});
+  if(!sf.length){alert('فیلدی برای چاپ انتخاب نشده');return;}
+  var extraCols=includeExtra?reportExtraCols:[];
+  var title=(customTitle!==undefined&&customTitle!==null&&customTitle!=='')?customTitle:'لیست دانش‌آموزان';
   var pn=function(s){return String(s).replace(/[0-9]/g,function(d){return'۰۱۲۳۴۵۶۷۸۹'.charAt(parseInt(d));});};
-  var tbody=data.map(function(r,i){
-    return '<tr>'+cols.map(function(c){
-      return '<td>'+pn(c==='#'?(i+1):(r[c]||'—'))+'</td>';
-    }).join('')+'</tr>';
-  }).join('');
-  var content='<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8">'
-    +'<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">'
-    +'<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;font-size:9pt;padding:6mm}'
-    +'@page{size:'+size+' '+orient+';margin:6mm}'
-    +'table{border-collapse:collapse;width:100%;table-layout:fixed}'
-    +'th{padding:2px 4px;border:1px solid #aaa;font-size:8pt;word-break:break-word}'
-    +'td{padding:1.5px 4px;border:1px solid #eee;font-size:7.5pt;word-break:break-word;line-height:1.3}'
-    +'tr:nth-child(even){background:#f0f4ff}'
-    +'</style></head><body>'
-    +'<div style="text-align:center;margin-bottom:5mm">'
-    +'<div style="font-size:12pt;font-weight:800;color:#1a4a7a">مدرسه شهید نیاسری ۱ — لیست دانش آموزان</div>'
-    +'<div style="font-size:8.5pt;color:#555;margin-top:1.5mm">تعداد: '+data.length+' نفر'+filterText+' | '+new Date().toLocaleDateString('fa-IR')+'</div>'
-    +'</div>'
-    +'<table><thead>'+thead+'</thead><tbody>'+tbody+'</tbody></table>'
-    +'</body></html>';
-  var w=window.open('','_blank','width=1000,height=700');
+
+  var content='<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8">'+
+    '<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">'+
+    '<style>'+
+    '*{margin:0;padding:0;box-sizing:border-box}'+
+    'body{font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;color:#111;padding:5mm;font-size:8.5pt;line-height:1.2;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+    '@page{size:'+size+' '+orient+';margin:5mm}'+
+    'table{border-collapse:collapse;width:100%;border:1px solid #333}'+
+    'th{background:#e0e7ff;color:#1a237e;padding:3px;border:1px solid #333;font-size:8pt;font-weight:800;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+    'td{padding:2px 3px;border:1px solid #333;font-size:8pt;line-height:1.2;word-wrap:break-word}'+
+    'td:first-child,th:first-child{text-align:center;white-space:nowrap;width:1cm}'+
+    'tr:nth-child(even){background:#f5f8ff}'+
+    'tr{page-break-inside:avoid}'+
+    '.header{text-align:center;margin-bottom:3mm;border-bottom:1.5px solid #1a4a7a;padding-bottom:2mm}'+
+    '.header h2{color:#1a4a7a;font-size:11pt;margin-bottom:0.5mm}'+
+    '.header p{font-size:8pt;margin:0.2mm 0}'+
+    '@media print{body{padding:5mm;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}table{page-break-inside:avoid;width:100%}thead{display:table-header-group}tr{page-break-inside:avoid}th{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}'+
+    '</style></head><body>';
+
+  content+='<div class="header">'+
+    '<h2>🏫 مدرسه شهید نیاسری ۱</h2>'+
+    '<p><strong>'+title+' — '+pn(data.length)+' دانش‌آموز</strong></p>'+
+    '</div>';
+
+  content+='<table><thead><tr><th>ردیف</th>';
+  sf.forEach(function(fn){content+='<th>'+fn+'</th>';});
+  extraCols.forEach(function(c){content+='<th style="min-width:'+(c.width||4)+'cm;font-size:'+(c.fontSize||8)+'pt">'+(c.title||'')+'</th>';});
+  content+='</tr></thead><tbody>';
+
+  data.forEach(function(r,i){
+    content+='<tr><td>'+pn(i+1)+'</td>';
+    sf.forEach(function(fn){content+='<td>'+pn(r[fn]||'—')+'</td>';});
+    extraCols.forEach(function(c){content+='<td style="min-width:'+(c.width||4)+'cm;padding:6px 4px">&nbsp;</td>';});
+    content+='</tr>';
+  });
+
+  content+='</tbody></table></body></html>';
+  var w=window.open('','_blank','width=900,height=700');
   w.document.write(content);
   w.document.close();
   w.onload=function(){w.focus();w.print();};
@@ -1789,12 +1884,13 @@ function renderClassReport(){
   var title=(paye?'پایه '+paye:'همه پایه‌ها')+(klass?' — '+(klass==='—'?'بدون کلاس':'کلاس '+klass):'');
   var sortInfo=rptSortCol?'<span style="font-size:11px;color:var(--text-muted);font-weight:400;margin-right:8px">مرتب: '+rptSortCol+(rptSortDir===1?' ▲':' ▼')+'</span>':'';
   var rows=classReportData.map(function(r,i){
-    return '<tr><td style="text-align:center">'+(i+1)+'</td>'+sf.map(function(fn){return '<td>'+(r[fn]||'—')+'</td>';}).join('')+'</tr>';
+    var extraCells=reportExtraCols.map(function(){return '<td style="min-width:60px"></td>';}).join('');
+    return '<tr><td style="text-align:center">'+(i+1)+'</td>'+sf.map(function(fn){return '<td>'+(r[fn]||'—')+'</td>';}).join('')+extraCells+'</tr>';
   }).join('');
   var headers='<th>#</th>'+sf.map(function(fn){
     var cls='sortable'+(rptSortCol===fn?(rptSortDir===1?' sort-asc':' sort-desc'):'');
     return '<th class="'+cls+'" onclick="rptSortBy(\''+fn+'\')">'+fn+'</th>';
-  }).join('');
+  }).join('')+reportExtraCols.map(function(c){return '<th style="background:#fdba74;color:#7c2d12">'+c.title+'</th>';}).join('');
   document.getElementById('classReportArea').innerHTML=
     '<div style="font-weight:700;font-size:14px;color:var(--primary);margin-bottom:8px">'+title+' — '+classReportData.length+' دانش آموز '+sortInfo+'</div>'
     +'<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">💡 روی هر عنوان ستون کلیک کنید تا مرتب شود</div>'
@@ -1804,32 +1900,34 @@ function renderClassReport(){
 
 function printClassReport(){
   if(!classReportData.length){alert('ابتدا گزارش را نمایش دهید');return;}
-  showPrintDialog(function(size,orient){
-    doPrintClassReport(size,orient);
-  });
+  var paye=document.getElementById('reportPaye').value,klass=document.getElementById('reportClass').value;
+  var defTitle=(paye?'پایه '+paye:'همه پایه‌ها')+(klass?' — '+(klass==='—'?'بدون کلاس':'کلاس '+klass):'');
+  showPrintDialog(function(size,orient,title){
+    doPrintClassReport(size,orient,title);
+  },{titleDefault:defTitle});
 }
-function doPrintClassReport(size,orient){
+function doPrintClassReport(size,orient,customTitle){
   var paye=document.getElementById('reportPaye').value,klass=document.getElementById('reportClass').value;
   var sf=reportSelectedFields.filter(function(fn){return allFields.find(function(f){return f.name===fn&&f.visible!==false;});});
   if(!sf.length){alert('فیلدی انتخاب نشده');return;}
-  var title=(paye?'پایه '+paye:'همه پایه‌ها')+(klass?' — '+(klass==='—'?'بدون کلاس':'کلاس '+klass):'');
+  var title=(customTitle!==undefined&&customTitle!==null&&customTitle!=='')?customTitle:((paye?'پایه '+paye:'همه پایه‌ها')+(klass?' — '+(klass==='—'?'بدون کلاس':'کلاس '+klass):''));
   
   var content='<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8">'+
     '<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">'+
     '<style>'+
     '*{margin:0;padding:0;box-sizing:border-box}'+
-    'body{font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;color:#111;padding:5mm;font-size:8.5pt;line-height:1.2}'+
+    'body{font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;color:#111;padding:5mm;font-size:8.5pt;line-height:1.2;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
     '@page{size:'+size+' '+orient+';margin:5mm}'+
     'table{border-collapse:collapse;width:100%;border:1px solid #333}'+
-    'th{background:#1a4a7a;color:#fff;padding:3px;border:1px solid #333;font-size:8pt;font-weight:bold;text-align:center}'+
+    'th{background:#e0e7ff;color:#1a237e;padding:3px;border:1px solid #333;font-size:8pt;font-weight:800;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
     'td{padding:2px 3px;border:1px solid #333;font-size:8pt;line-height:1.2;word-wrap:break-word}'+
-    'td:first-child,th:first-child{text-align:center;white-space:nowrap;width:2.2cm}'+
+    'td:first-child,th:first-child{text-align:center;white-space:nowrap;width:1cm}'+
     'tr:nth-child(even){background:#f5f8ff}'+
     'tr{page-break-inside:avoid}'+
     '.header{text-align:center;margin-bottom:3mm;border-bottom:1.5px solid #1a4a7a;padding-bottom:2mm}'+
     '.header h2{color:#1a4a7a;font-size:11pt;margin-bottom:0.5mm}'+
     '.header p{font-size:8pt;margin:0.2mm 0}'+
-    '@media print{body{padding:5mm;margin:0}table{page-break-inside:avoid;width:100%}thead{display:table-header-group}tr{page-break-inside:avoid}}'+
+    '@media print{body{padding:5mm;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}table{page-break-inside:avoid;width:100%}thead{display:table-header-group}tr{page-break-inside:avoid}th{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}'+
     '</style></head><body>';
   
   content+='<div class="header">'+
@@ -1840,12 +1938,14 @@ function doPrintClassReport(size,orient){
   
   content+='<table><thead><tr><th>ردیف</th>';
   sf.forEach(function(fn){content+='<th>'+fn+'</th>';});
+  reportExtraCols.forEach(function(c){content+='<th style="min-width:'+(c.width||4)+'cm;font-size:'+(c.fontSize||8)+'pt">'+(c.title||'')+'</th>';});
   content+='</tr></thead><tbody>';
   
   classReportData.forEach(function(r,i){
     var pn=function(s){return String(s).replace(/[0-9]/g,function(d){return'۰۱۲۳۴۵۶۷۸۹'.charAt(parseInt(d));});};
     content+='<tr><td>'+pn(i+1)+'</td>';
     sf.forEach(function(fn){content+='<td>'+pn(r[fn]||'—')+'</td>';});
+    reportExtraCols.forEach(function(c){content+='<td style="min-width:'+(c.width||4)+'cm;padding:6px 4px">&nbsp;</td>';});
     content+='</tr>';
   });
   
@@ -1946,12 +2046,23 @@ async function doImport(){
 }
 
 // ===== دیالوگ انتخاب اندازه و جهت چاپ =====
-function showPrintDialog(callback){
+function showPrintDialog(callback,opts){
+  opts=opts||{};
   var ov=document.createElement('div');
   ov.id='printDialogOv';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center';
   ov.innerHTML='<div style="background:#fff;border-radius:16px;padding:24px 28px;min-width:280px;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;box-shadow:0 8px 40px rgba(0,0,0,.3)">'
     +'<h3 style="font-size:14px;font-weight:800;color:#1a4a7a;margin-bottom:16px;text-align:center">⚙️ تنظیمات چاپ</h3>'
+    +(opts.titleDefault!==undefined?(
+    '<div style="margin-bottom:14px">'
+    +'<div style="font-size:12px;font-weight:700;margin-bottom:6px;color:#444">عنوان گزارش</div>'
+    +'<input type="text" id="pdTitle" value="'+String(opts.titleDefault).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')+'" style="width:100%;padding:8px 10px;border:1.5px solid #bfdbfe;border-radius:8px;font-family:Vazirmatn,sans-serif;font-size:13px;box-sizing:border-box">'
+    +'</div>'):'')
+    +(opts.showExtraColsToggle?(
+    '<div style="margin-bottom:14px">'
+    +'<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1.5px solid #fed7aa;border-radius:8px;cursor:pointer;font-size:12px;background:#fff7ed">'
+    +'<input type="checkbox" id="pdIncludeExtra" style="accent-color:#c2410c"> ستون‌های خالی برای تیک زدن/یادداشت هم اضافه شود</label>'
+    +'</div>'):'')
     +'<div style="margin-bottom:12px">'
     +'<div style="font-size:12px;font-weight:700;margin-bottom:6px;color:#444">اندازه کاغذ</div>'
     +'<div style="display:flex;gap:8px">'
@@ -1978,8 +2089,10 @@ function showPrintDialog(callback){
   document.getElementById('pdPrint').onclick=function(){
     var size=document.querySelector('input[name="pdSize"]:checked').value;
     var orient=document.querySelector('input[name="pdOrient"]:checked').value;
+    var title=opts.titleDefault!==undefined?document.getElementById('pdTitle').value:undefined;
+    var includeExtra=opts.showExtraColsToggle?document.getElementById('pdIncludeExtra').checked:undefined;
     document.body.removeChild(ov);
-    callback(size,orient);
+    callback(size,orient,title,includeExtra);
   };
 }
 
@@ -2000,7 +2113,7 @@ function resetFieldsToDefault(){
   try{localStorage.removeItem('allFields');}catch(e){}
   allFields=JSON.parse(JSON.stringify(DEFAULT_FIELDS));
   buildSettingsUI();
-  buildReportFieldsGrid();
+  buildReportFieldsGrid(); buildReportExtraColsUI();
   alert('✅ فیلدها بازنشانی شدند. حالا ملیت افغان را انتخاب کنید تا فیلد نوع مدرک نمایش داده شود.');
 }
 
