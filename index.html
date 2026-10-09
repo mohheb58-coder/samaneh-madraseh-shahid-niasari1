@@ -264,7 +264,11 @@ tbody td{padding:10px 13px;white-space:nowrap}
 
         <!-- لباس فرم -->
         <div class="settings-card" style="margin-bottom:0">
-          <h3>👕 لباس فرم</h3>
+          <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleCardBody('uniformCardBody','uniformCardArrow')">
+            <h3 style="margin:0">👕 لباس فرم</h3>
+            <span id="uniformCardArrow" style="font-size:13px;color:var(--text-muted)">▸</span>
+          </div>
+          <div id="uniformCardBody" style="display:none;margin-top:12px">
           <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px">
             <div class="uni-card uc-order"><div class="uc-val" id="statUniformOrder">—</div><div class="uc-lbl">تعداد سفارش</div></div>
             <div class="uni-card uc-done"><div class="uc-val" id="statUniformDone">—</div><div class="uc-lbl">تحویل داده شده</div></div>
@@ -278,6 +282,7 @@ tbody td{padding:10px 13px;white-space:nowrap}
               <button onclick="printUniformTable()" style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:5px;font-weight:600;box-shadow:0 2px 6px rgba(99,102,241,.3)">🖨️ چاپ جدول</button>
             </div>
             <div id="uniformCrossStats" style="overflow-x:auto"></div>
+          </div>
           </div>
         </div>
 
@@ -294,6 +299,47 @@ tbody td{padding:10px 13px;white-space:nowrap}
         </div>
       </div>
 
+      <!-- ردیف ۵: موجودی و فاکتورهای لباس فرم -->
+      <div class="settings-card" style="margin-top:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="toggleCardBody('invoiceCardBody','invoiceCardArrow')">
+            <h3 style="margin:0">📦 موجودی و فاکتورهای لباس فرم</h3>
+            <span id="invoiceCardArrow" style="font-size:13px;color:var(--text-muted)">▸</span>
+          </div>
+          <button onclick="openInvoiceModal()" style="background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-family:inherit;cursor:pointer;font-weight:700;box-shadow:0 2px 6px rgba(22,163,74,.3)">➕ ثبت فاکتور جدید</button>
+        </div>
+        <div id="invoiceCardBody" style="display:none">
+        <div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px">📊 جدول موجودی بر اساس نوع و سایز (کل سفارش / موجودی از فاکتور / تحویل‌شده / مونده / کمبود)</div>
+        <div id="uniformInventoryTable" style="overflow-x:auto;margin-bottom:18px"><div style="color:var(--text-muted);font-size:13px;padding:12px 0">در حال بارگذاری...</div></div>
+        <div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px">🧾 لیست فاکتورهای ثبت‌شده</div>
+        <div id="invoiceList"><div style="color:var(--text-muted);font-size:13px;padding:8px 0">در حال بارگذاری...</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- مودال ثبت فاکتور جدید -->
+  <div id="invoiceModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:16px;padding:22px 24px;width:min(720px,94vw);max-height:88vh;overflow-y:auto;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;box-shadow:0 8px 40px rgba(0,0,0,.3)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <h3 id="invoiceModalTitle" style="font-size:15px;font-weight:800;color:#15803d;margin:0">🧾 ثبت فاکتور جدید موجودی لباس فرم</h3>
+        <button onclick="closeInvoiceModal()" style="background:#f1f5f9;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:13px">✕</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+        <div><label style="font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:4px">شماره فاکتور</label>
+          <input type="text" id="invNumber" placeholder="مثلاً ۱" style="width:100%;padding:8px 10px;border:1.5px solid #d1d5db;border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box"></div>
+        <div><label style="font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:4px">تاریخ فاکتور</label>
+          <input type="text" id="invDate" placeholder="۱۴۰۴/۰۵/۱۰" style="width:100%;padding:8px 10px;border:1.5px solid #d1d5db;border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box"></div>
+        <div><label style="font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:4px">توضیحات (اختیاری)</label>
+          <input type="text" id="invNote" placeholder="مثلاً خرید از فروشگاه..." style="width:100%;padding:8px 10px;border:1.5px solid #d1d5db;border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box"></div>
+      </div>
+      <div id="invoiceGrid" style="overflow-x:auto"></div>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button onclick="submitInvoice()" id="invoiceSubmitBtn" style="flex:1;padding:11px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">💾 ذخیره فاکتور</button>
+        <button onclick="closeInvoiceModal()" style="padding:11px 18px;background:#f1f5f9;color:#555;border:none;border-radius:9px;font-family:inherit;font-size:13px;cursor:pointer">انصراف</button>
+      </div>
+      <div id="invoiceModalStatus" style="font-size:12px;color:var(--success);margin-top:8px;text-align:center"></div>
     </div>
   </div>
 
@@ -684,6 +730,14 @@ var photoEnabled = loadLS('photoEnabled', false);
 var reportSelectedFields = loadLS('reportSelectedFields', ['نام','نام خانوادگی','کد ملی','شماره کلاس','موبایل پدر','موبایل شاد','لباس فرم مدرسه','سایز لباس','تحویل']);
 var reportExtraCols = loadLS('reportExtraCols', []);
 
+var UNIFORM_TYPES=['روپوش و شلوار','روپوش تک','شلوار تک'];
+var UNIFORM_COLORS={
+  'روپوش و شلوار':{bg:'#ede9fe',border:'#7c3aed',text:'#5b21b6',badge:'#7c3aed',icon:'👔'},
+  'روپوش تک':     {bg:'#dbeafe',border:'#2563eb',text:'#1d4ed8',badge:'#2563eb',icon:'👕'},
+  'شلوار تک':     {bg:'#dcfce7',border:'#16a34a',text:'#15803d',badge:'#16a34a',icon:'👖'}
+};
+var UNIFORM_SIZE_ORDER=['سایز0','سایز1','سایز2','سایز3','سایز4','سایز5','سایز6','سایز7','سایز8','سایز9'];
+var invoiceItems=[];
 var allData=[], filteredData=[], currentRowIndex=-1, classReportData=[];
 var sortCol='', sortDir=1;
 function deliveryRank(v){
@@ -703,7 +757,7 @@ function initAdmin() {
   if(SHEETS_URL){ document.getElementById('sheetsUrlInput').value=SHEETS_URL; document.getElementById('urlStatus').textContent='✅'; }
   document.getElementById('photoEnabled').checked = !!photoEnabled;
   document.getElementById('photoEnabled').addEventListener('change', function(){ photoEnabled=this.checked; try{localStorage.setItem('photoEnabled',JSON.stringify(this.checked));}catch(e){} });
-  buildSettingsUI(); buildReportFieldsGrid(); buildReportExtraColsUI(); loadData(); startLiveClock();
+  buildSettingsUI(); buildReportFieldsGrid(); buildReportExtraColsUI(); loadData(); loadInvoices(); startLiveClock();
 }
 
 function esc(s){ return s.replace(/[\s؟?]/g,'_'); }
@@ -984,13 +1038,6 @@ function updateStats(data){
   var debt=data.reduce(function(s,r){return s+(parseFloat(r['مبلغ مانده']||0)||0);},0);
   document.getElementById('statDebt').textContent=toPersianNum(Math.round(debt).toLocaleString('en-US'));
   // جدول گرافیکی نوع لباس × سایز — روپوش و شلوار اول
-  var UNIFORM_TYPES=['روپوش و شلوار','روپوش تک','شلوار تک'];
-  var UNIFORM_COLORS={
-    'روپوش و شلوار':{bg:'#ede9fe',border:'#7c3aed',text:'#5b21b6',badge:'#7c3aed',icon:'👔'},
-    'روپوش تک':     {bg:'#dbeafe',border:'#2563eb',text:'#1d4ed8',badge:'#2563eb',icon:'👕'},
-    'شلوار تک':     {bg:'#dcfce7',border:'#16a34a',text:'#15803d',badge:'#16a34a',icon:'👖'}
-  };
-  var SIZE_ORDER=['سایز0','سایز1','سایز2','سایز3','سایز4','سایز5','سایز6','سایز7','سایز8','سایز9'];
   var crossMap={};var activeSizes={};
   UNIFORM_TYPES.forEach(function(t){crossMap[t]={};});
   data.forEach(function(r){
@@ -1001,8 +1048,8 @@ function updateStats(data){
     crossMap[t][s]=(crossMap[t][s]||0)+1;
     activeSizes[s]=true;
   });
-  var usedSizes=SIZE_ORDER.filter(function(s){return activeSizes[s];});
-  Object.keys(activeSizes).forEach(function(s){if(SIZE_ORDER.indexOf(s)===-1)usedSizes.push(s);});
+  var usedSizes=UNIFORM_SIZE_ORDER.filter(function(s){return activeSizes[s];});
+  Object.keys(activeSizes).forEach(function(s){if(UNIFORM_SIZE_ORDER.indexOf(s)===-1)usedSizes.push(s);});
   window._lastUniformCross={types:UNIFORM_TYPES,colors:UNIFORM_COLORS,sizes:usedSizes,map:crossMap};
 
   if(!usedSizes.length){
@@ -1010,6 +1057,19 @@ function updateStats(data){
   }else{
     document.getElementById('uniformCrossStats').innerHTML=buildUniformTableHTML(false);
   }
+
+  // موجودی/تحویل‌شده بر اساس فاکتور — از روی همین داده دانش‌آموزان، مقدار تحویل‌شده هر نوع/سایز
+  var deliveredMap={};
+  UNIFORM_TYPES.forEach(function(t){deliveredMap[t]={};});
+  data.forEach(function(r){
+    var t=(r['لباس فرم مدرسه']||'').trim();
+    var s=(r['سایز لباس']||'').trim();
+    if(!t||t==='نیاز ندارد'||!s||r['تحویل']!=='تحویل شده')return;
+    if(!deliveredMap[t])deliveredMap[t]={};
+    deliveredMap[t][s]=(deliveredMap[t][s]||0)+1;
+  });
+  window._deliveredMap=deliveredMap;
+  renderUniformInventoryTable();
 }
 
 function updateDashStats(data){
@@ -3383,6 +3443,252 @@ function printUniformTable(){
   w.document.write('</body></html>');
   w.document.close();
   setTimeout(function(){w.focus();w.print();},600);
+}
+
+// ===== موجودی و فاکتورهای لباس فرم =====
+var editingInvoiceNumber=null;
+function openInvoiceModal(editNum){
+  editingInvoiceNumber = editNum || null;
+  var existingItems = editingInvoiceNumber ? invoiceItems.filter(function(r){ return String(r['شماره فاکتور']).trim()===String(editingInvoiceNumber).trim(); }) : [];
+  var existingMap={}, existingDate='', existingNote='';
+  existingItems.forEach(function(r){
+    var t=(r['نوع لباس']||'').trim(), s=(r['سایز']||'').trim();
+    existingMap[t+'|'+s]=parseInt(r['تعداد'],10)||0;
+    if(r['تاریخ فاکتور']) existingDate=r['تاریخ فاکتور'];
+    if(r['توضیحات']) existingNote=r['توضیحات'];
+  });
+
+  var grid=document.getElementById('invoiceGrid');
+  var html='';
+  UNIFORM_TYPES.forEach(function(t,ti){
+    var cl=UNIFORM_COLORS[t];
+    var hasData=UNIFORM_SIZE_ORDER.some(function(s){ return (existingMap[t+'|'+s]||0)>0; });
+    var openThis = editingInvoiceNumber ? hasData : ti===0;
+    html+='<div class="inv-acc" style="border:1.5px solid '+cl.border+';border-radius:10px;margin-bottom:10px;overflow:hidden">';
+    html+='<div class="inv-acc-head" onclick="toggleInvType(this)" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:'+cl.border+';color:#fff;font-weight:800;font-size:13px">';
+    html+='<span>'+cl.icon+' '+t+'</span>';
+    html+='<span style="display:flex;align-items:center;gap:8px"><span id="invBadge_'+esc(t)+'" style="background:rgba(255,255,255,.25);border-radius:20px;padding:2px 10px;font-size:11px">جمع: ۰</span><span class="inv-arrow" style="transition:transform .2s;display:inline-block;transform:'+(openThis?'rotate(180deg)':'rotate(0deg)')+'">▾</span></span>';
+    html+='</div>';
+    html+='<div class="inv-acc-body" style="display:'+(openThis?'block':'none')+';padding:14px;background:'+cl.bg+'">';
+    html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px">';
+    UNIFORM_SIZE_ORDER.forEach(function(s){
+      var id='invq_'+esc(t)+'_'+esc(s);
+      var val=existingMap[t+'|'+s]||'';
+      html+='<div style="background:#fff;border:1.5px solid '+cl.border+';border-radius:9px;padding:8px;text-align:center">';
+      html+='<label for="'+id+'" style="display:block;font-size:12px;font-weight:800;color:'+cl.text+';margin-bottom:5px">'+s+'</label>';
+      html+='<input type="number" min="0" id="'+id+'" value="'+val+'" placeholder="۰" oninput="updateInvBadge(\''+t.replace(/'/g,"\\'")+'\')" style="width:100%;padding:7px 4px;text-align:center;border:1.5px solid #d1d5db;border-radius:7px;font-family:inherit;font-size:14px;font-weight:700;box-sizing:border-box">';
+      html+='</div>';
+    });
+    html+='</div></div></div>';
+  });
+  grid.innerHTML=html;
+  document.getElementById('invNumber').value=editingInvoiceNumber||'';
+  document.getElementById('invDate').value=existingDate||new Date().toLocaleDateString('fa-IR');
+  document.getElementById('invNote').value=existingNote||'';
+  document.getElementById('invoiceModalStatus').textContent='';
+  document.getElementById('invoiceModalTitle').textContent = editingInvoiceNumber ? ('✏️ ویرایش فاکتور شماره '+toPersianNum(editingInvoiceNumber)) : '🧾 ثبت فاکتور جدید موجودی لباس فرم';
+  document.getElementById('invoiceSubmitBtn').textContent = editingInvoiceNumber ? '💾 ذخیره تغییرات' : '💾 ذخیره فاکتور';
+  UNIFORM_TYPES.forEach(function(t){ updateInvBadge(t); });
+  document.getElementById('invoiceModal').style.display='flex';
+}
+function editInvoice(num){ openInvoiceModal(num); }
+function toggleCardBody(bodyId,arrowId){
+  var body=document.getElementById(bodyId);
+  var arrow=document.getElementById(arrowId);
+  if(!body)return;
+  var open=body.style.display!=='none';
+  body.style.display=open?'none':'';
+  if(arrow) arrow.textContent=open?'▸':'▾';
+}
+function toggleInvType(headEl){
+  var body=headEl.nextElementSibling;
+  var arrow=headEl.querySelector('.inv-arrow');
+  var open=body.style.display!=='none';
+  body.style.display=open?'none':'block';
+  arrow.style.transform=open?'rotate(0deg)':'rotate(180deg)';
+}
+function updateInvBadge(t){
+  var sum=0;
+  UNIFORM_SIZE_ORDER.forEach(function(s){
+    var el=document.getElementById('invq_'+esc(t)+'_'+esc(s));
+    sum+=parseInt(el&&el.value,10)||0;
+  });
+  var badge=document.getElementById('invBadge_'+esc(t));
+  if(badge) badge.textContent='جمع: '+toPersianNum(sum);
+}
+function closeInvoiceModal(){ document.getElementById('invoiceModal').style.display='none'; editingInvoiceNumber=null; }
+
+async function submitInvoice(){
+  if(!SHEETS_URL){alert('آدرس Google Sheets تنظیم نشده است');return;}
+  var num=document.getElementById('invNumber').value.trim();
+  var date=document.getElementById('invDate').value.trim();
+  var note=document.getElementById('invNote').value.trim();
+  if(!num){alert('شماره فاکتور را وارد کنید');return;}
+  var items=[];
+  UNIFORM_TYPES.forEach(function(t){
+    UNIFORM_SIZE_ORDER.forEach(function(s){
+      var el=document.getElementById('invq_'+esc(t)+'_'+esc(s));
+      var qty=parseInt(el&&el.value,10)||0;
+      if(qty>0) items.push({type:t,size:s,qty:qty});
+    });
+  });
+  if(!items.length){alert('حداقل برای یک نوع/سایز تعداد وارد کنید');return;}
+  var st=document.getElementById('invoiceModalStatus');
+  st.style.color='var(--success)';
+  st.textContent=editingInvoiceNumber?'⏳ در حال ذخیره تغییرات...':'⏳ در حال ذخیره...';
+  var today=new Date().toLocaleDateString('fa-IR');
+  var wasEditing=editingInvoiceNumber;
+  try{
+    if(wasEditing){
+      await fetch(SHEETS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'deleteInvoice',invoiceNumber:wasEditing})});
+    }
+    for(var i=0;i<items.length;i++){
+      await fetch(SHEETS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'addInvoiceItem',
+          'شماره فاکتور':num,'تاریخ فاکتور':date,'نوع لباس':items[i].type,'سایز':items[i].size,
+          'تعداد':items[i].qty,'توضیحات':note,'تاریخ ثبت':today})});
+    }
+    // چون درخواست با mode:'no-cors' ارسال می‌شود، پاسخ واقعی سرور قابل خواندن نیست؛
+    // برای اطمینان، بعد از چند ثانیه دوباره از سرور می‌خوانیم و بررسی می‌کنیم که واقعاً ثبت شده باشد
+    st.textContent='⏳ در حال بررسی ثبت شدن...';
+    await new Promise(function(res){ setTimeout(res,1200); });
+    var verifyRes=await fetch(SHEETS_URL+'?action=getInvoices&t='+Date.now());
+    var verifyJson=await verifyRes.json();
+    var verifyRows=verifyJson.data||[];
+    var saved=verifyRows.some(function(r){ return String(r['شماره فاکتور']).trim()===String(num).trim(); });
+    if(saved){
+      st.textContent=wasEditing?'✅ تغییرات ذخیره شد':'✅ فاکتور ذخیره شد';
+      invoiceItems=verifyRows;
+      renderUniformInventoryTable(); renderInvoiceList();
+      setTimeout(function(){ closeInvoiceModal(); },500);
+    }else{
+      st.style.color='#dc2626';
+      st.innerHTML='❌ فاکتور در Google Sheets ثبت نشد.<br>احتمالاً باید اسکریپت (Apps Script) را دوباره Deploy کنید (Manage deployments ← ویرایش ← New version ← Deploy).';
+    }
+  }catch(e){ st.style.color='#dc2626'; st.textContent='❌ خطا در ذخیره فاکتور — اتصال به Google Sheets برقرار نشد'; }
+}
+
+async function loadInvoices(){
+  if(!SHEETS_URL){ renderUniformInventoryTable(); document.getElementById('invoiceList').innerHTML='<div style="color:var(--text-muted);font-size:13px;padding:8px 0">آدرس Google Sheets تنظیم نشده است</div>'; return; }
+  try{
+    var res=await fetch(SHEETS_URL+'?action=getInvoices&t='+Date.now());
+    var json=await res.json();
+    invoiceItems=json.data||[];
+  }catch(e){ invoiceItems=[]; }
+  renderUniformInventoryTable();
+  renderInvoiceList();
+}
+
+function buildInventoryMaps(){
+  var orderedMap={}; UNIFORM_TYPES.forEach(function(t){orderedMap[t]={};});
+  invoiceItems.forEach(function(r){
+    var t=(r['نوع لباس']||'').trim(), s=(r['سایز']||'').trim(), q=parseInt(r['تعداد'],10)||0;
+    if(!t||!s)return;
+    if(!orderedMap[t])orderedMap[t]={};
+    orderedMap[t][s]=(orderedMap[t][s]||0)+q;
+  });
+  return orderedMap;
+}
+
+function renderUniformInventoryTable(){
+  var box=document.getElementById('uniformInventoryTable');
+  if(!box)return;
+  var invMap=buildInventoryMaps();
+  var demandMap=(window._lastUniformCross&&window._lastUniformCross.map)||{};
+  var deliveredMap=window._deliveredMap||{};
+  var activeSizes={};
+  UNIFORM_TYPES.forEach(function(t){
+    Object.keys(invMap[t]||{}).forEach(function(s){activeSizes[s]=true;});
+    Object.keys(demandMap[t]||{}).forEach(function(s){activeSizes[s]=true;});
+    Object.keys(deliveredMap[t]||{}).forEach(function(s){activeSizes[s]=true;});
+  });
+  var sizes=UNIFORM_SIZE_ORDER.filter(function(s){return activeSizes[s];});
+  Object.keys(activeSizes).forEach(function(s){if(sizes.indexOf(s)===-1)sizes.push(s);});
+  if(!sizes.length){ box.innerHTML='<div style="color:var(--text-muted);font-size:13px;padding:12px 0">هنوز داده‌ای برای نمایش موجود نیست</div>'; return; }
+
+  var ROWS=[
+    {key:'demand',   label:'کل سفارش',            color:'#1e40af'},
+    {key:'invStock', label:'موجودی (فاکتور)',      color:'#7c3aed'},
+    {key:'shortage', label:'کمبود (نیاز خرید)',     color:'#dc2626'},
+    {key:'delivered',label:'تحویل شده',           color:'#c2410c'},
+    {key:'remaining',label:'مونده (تحویل‌نشده)',   color:'#15803d'}
+  ];
+  var nRows=ROWS.length;
+
+  function getVal(key,t,s){
+    var demand=(demandMap[t]&&demandMap[t][s])||0;
+    var inv=(invMap[t]&&invMap[t][s])||0;
+    var delivered=(deliveredMap[t]&&deliveredMap[t][s])||0;
+    if(key==='demand')return demand;
+    if(key==='invStock')return inv;
+    if(key==='shortage')return demand-inv;
+    if(key==='delivered')return delivered;
+    return demand-delivered; // remaining
+  }
+
+  var html='<table style="border-collapse:separate;border-spacing:0;width:100%;font-size:11.5px;direction:rtl;border-radius:8px;overflow:hidden">';
+  html+='<thead><tr><th style="background:#1e40af;color:#fff;padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">نوع لباس</th><th style="background:#1e40af;color:#fff;padding:6px 8px;text-align:center;font-weight:700;white-space:nowrap">ردیف</th>';
+  sizes.forEach(function(s){ html+='<th style="background:#1e40af;color:#fff;padding:6px 4px;text-align:center;font-weight:700;border-right:1px solid rgba(255,255,255,.2)">'+s+'</th>'; });
+  html+='<th style="background:#1e40af;color:#fff;padding:6px 8px;text-align:center;font-weight:700;border-right:1px solid rgba(255,255,255,.2)">جمع</th></tr></thead><tbody>';
+
+  UNIFORM_TYPES.forEach(function(t,ti){
+    var cl=UNIFORM_COLORS[t];
+    ROWS.forEach(function(row,ri){
+      var isFirst=ri===0;
+      var rowTotal=0;
+      var topBorder = isFirst && ti>0 ? '3px solid #cbd5e1' : (ri<nRows-1?'1px solid #eef2f7':'1px solid #eef2f7');
+      var zebra = ri%2===1 ? 'background:#fafbff;' : '';
+      html+='<tr>';
+      if(isFirst){ html+='<td rowspan="'+nRows+'" style="background:'+cl.bg+';padding:7px 8px;border-top:'+(ti>0?'3px solid #cbd5e1':'none')+';border-bottom:1px solid #eef2f7;border-right:3px solid '+cl.border+';white-space:nowrap;vertical-align:middle"><strong style="color:'+cl.text+';font-size:12.5px">'+cl.icon+' '+t+'</strong></td>'; }
+      html+='<td style="'+zebra+'padding:5px 8px;border-top:'+(isFirst&&ti>0?'3px solid #cbd5e1':'none')+';border-bottom:1px solid #eef2f7;color:'+row.color+';font-weight:600;white-space:nowrap">'+row.label+'</td>';
+      sizes.forEach(function(s){
+        var val=getVal(row.key,t,s);
+        rowTotal+=val;
+        var showDash = (row.key==='shortage'||row.key==='remaining') ? val<=0 : val===0;
+        var neg = (row.key==='remaining'||row.key==='shortage') && val>0;
+        html+='<td style="'+zebra+'padding:5px 4px;text-align:center;border-top:'+(isFirst&&ti>0?'3px solid #cbd5e1':'none')+';border-bottom:1px solid #eef2f7'+(neg?';background:#fee2e2':'')+'">'+(!showDash?'<span style="font-weight:700;color:'+(neg?'#dc2626':row.color)+'">'+toPersianNum(val)+'</span>':'<span style="color:#d1d5db">—</span>')+'</td>';
+      });
+      html+='<td style="'+zebra+'padding:5px 8px;text-align:center;border-top:'+(isFirst&&ti>0?'3px solid #cbd5e1':'none')+';border-bottom:1px solid #eef2f7;font-weight:800;color:'+row.color+'">'+toPersianNum(rowTotal)+'</td>';
+      html+='</tr>';
+    });
+  });
+  html+='</tbody></table>';
+  box.innerHTML=html;
+}
+
+function renderInvoiceList(){
+  var box=document.getElementById('invoiceList');
+  if(!box)return;
+  if(!invoiceItems.length){ box.innerHTML='<div style="color:var(--text-muted);font-size:13px;padding:8px 0">هنوز فاکتوری ثبت نشده است</div>'; return; }
+  var grouped={};
+  invoiceItems.forEach(function(r){
+    var num=r['شماره فاکتور']||'—';
+    if(!grouped[num]) grouped[num]={num:num,date:r['تاریخ فاکتور']||'',note:r['توضیحات']||'',total:0,items:[]};
+    var q=parseInt(r['تعداد'],10)||0;
+    grouped[num].total+=q;
+    grouped[num].items.push((r['نوع لباس']||'')+' '+(r['سایز']||'')+': '+toPersianNum(q));
+  });
+  var html='<div style="display:flex;flex-direction:column;gap:8px">';
+  Object.keys(grouped).forEach(function(num){
+    var g=grouped[num];
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:#f8faff;border:1px solid #e2e8f0;border-radius:10px;padding:9px 12px;flex-wrap:wrap">';
+    html+='<div style="font-size:12px"><strong style="color:var(--primary)">🧾 فاکتور '+toPersianNum(num)+'</strong>'+(g.date?' — '+g.date:'')+(g.note?' — '+g.note:'')+'<div style="color:#64748b;margin-top:3px">'+g.items.join('، ')+'</div></div>';
+    html+='<div style="display:flex;align-items:center;gap:10px"><span style="font-weight:800;color:#15803d">جمع: '+toPersianNum(g.total)+'</span><button onclick="editInvoice(\''+String(num).replace(/'/g,"\\'")+'\')" style="background:#dbeafe;color:#1d4ed8;border:none;border-radius:7px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:inherit">✏️ ویرایش</button><button onclick="deleteInvoice(\''+String(num).replace(/'/g,"\\'")+'\')" style="background:#fee2e2;color:#dc2626;border:none;border-radius:7px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:inherit">🗑 حذف</button></div>';
+    html+='</div>';
+  });
+  html+='</div>';
+  box.innerHTML=html;
+}
+
+async function deleteInvoice(num){
+  if(!confirm('آیا از حذف کامل فاکتور «'+num+'» مطمئن هستید؟')) return;
+  if(!SHEETS_URL){alert('آدرس Google Sheets تنظیم نشده است');return;}
+  try{
+    await fetch(SHEETS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'deleteInvoice',invoiceNumber:num})});
+    setTimeout(loadInvoices,500);
+  }catch(e){ alert('❌ خطا در حذف فاکتور'); }
 }
 </script>
 </body>
