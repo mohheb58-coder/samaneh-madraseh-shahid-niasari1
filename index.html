@@ -190,6 +190,7 @@ tbody td{padding:10px 13px;white-space:nowrap}
     <button class="tab-btn" onclick="switchTab('tabStudents',this)">👥 دانش آموزان</button>
     <button class="tab-btn" onclick="switchTab('tabImport',this)">📥 ورودی Excel</button>
     <button class="tab-btn" onclick="switchTab('tabReport',this)">📋 گزارش کلاسی</button>
+    <button class="tab-btn" onclick="switchTab('tabAssoc',this);renderAssoc()">🏛️ انجمن اولیا</button>
     <button class="tab-btn" id="settingsTabBtn" onclick="openSettingsWithPassword(this)">⚙️ تنظیمات</button>
   </div>
 
@@ -355,6 +356,7 @@ tbody td{padding:10px 13px;white-space:nowrap}
         <button class="btn btn-purple" onclick="selectAllForPrint()">☑️ انتخاب همه برای پرینت</button>
         <button class="btn btn-purple" onclick="deselectAllForPrint()">☐ لغو انتخاب</button>
         <button class="btn btn-orange" onclick="printSelected()">🖨️ پرینت انتخاب شده‌ها</button>
+        <button class="btn btn-blue" onclick="exportSelectedExcel()">📥 Excel انتخاب‌شده‌ها</button>
         <button class="btn btn-blue" onclick="exportExcelAll()">📥 خروجی Excel</button>
         <button class="btn btn-gray" onclick="toggleColPanel()">📋 انتخاب فیلدها</button>
         <button class="btn btn-purple" onclick="printCurrentList()" title="همان ستون‌های نمایش‌داده‌شده در جدول چاپ می‌شوند — از تنظیمات ستون‌ها قابل تغییرند">🖨️ چاپ لیست</button>
@@ -377,6 +379,56 @@ tbody td{padding:10px 13px;white-space:nowrap}
           <table><thead><tr><th>#</th><th>عکس</th><th>نام</th><th>نام خانوادگی</th><th>کد ملی</th><th>پایه</th><th>شماره کلاس</th><th>موبایل پدر</th><th>لباس فرم مدرسه</th><th>تحویل</th><th>تاریخ ثبت</th><th>عملیات</th></tr></thead>
           <tbody id="tableBody"><tr><td colspan="12" style="text-align:center;padding:30px"><div class="spinner"></div></td></tr></tbody></table>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tabAssoc" class="tab-content">
+    <div class="content">
+      <div class="settings-card">
+        <h3>🏛️ انجمن اولیا و مربیان</h3>
+        <div class="report-filters">
+          <div><label style="font-size:12px;font-weight:600;color:var(--primary);display:block;margin-bottom:4px">پایه</label>
+            <select id="assocPaye" onchange="updateAssocClasses();renderAssoc()"><option value="">همه پایه‌ها</option><option>اول</option><option>دوم</option><option>سوم</option><option>چهارم</option><option>پنجم</option><option>ششم</option></select></div>
+          <div><label style="font-size:12px;font-weight:600;color:var(--primary);display:block;margin-bottom:4px">کلاس</label>
+            <select id="assocClass" onchange="renderAssoc()"><option value="">همه کلاس‌ها</option></select></div>
+          <div><label style="font-size:12px;font-weight:600;color:var(--primary);display:block;margin-bottom:4px">وضعیت</label>
+            <select id="assocStatus" onchange="renderAssoc()"><option value="">همه</option><option value="none">بدون وضعیت</option><option>کاندیدا</option><option>عضو اصلی</option><option>علی البدل</option></select></div>
+          <div><label style="font-size:12px;font-weight:600;color:var(--primary);display:block;margin-bottom:4px">عضو انجمن از طرف</label>
+            <select id="assocParent" onchange="renderAssoc()"><option value="">پدر و مادر</option><option>پدر</option><option>مادر</option></select></div>
+          <div><label style="font-size:12px;font-weight:600;color:var(--primary);display:block;margin-bottom:4px">جستجو</label>
+            <input type="text" id="assocSearch" placeholder="جستجو: نام، نام خانوادگی دانش‌آموز، پدر یا مادر، کد ملی..." oninput="renderAssoc()" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:Vazirmatn,sans-serif;font-size:13px"></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+          <button class="btn btn-gray" onclick="toggleAssocPanel()">🗂️ انتخاب فیلدها</button>
+          <button class="btn btn-purple" onclick="printAssocList()">🖨️ چاپ</button>
+          <button class="btn btn-blue" onclick="exportAssocText()">📄 خروجی متنی</button>
+          <button class="btn btn-orange" onclick="exportAssocExcel()">📥 خروجی Excel</button>
+          <button class="btn btn-gray" onclick="clearAssocChecks()">☐ لغو انتخاب‌ها</button>
+        </div>
+        <div id="assocFieldPanel" style="display:none;margin-top:12px;background:#f0f6ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:12px"><div id="assocFieldGrid" class="check-grid"></div></div>
+        <div id="assocOutInfo" style="font-size:12px;color:var(--text-muted);margin-top:10px"></div>
+      </div>
+
+      <div class="settings-card">
+        <h3>🧾 ثبت کاندیدا / عضو اصلی / علی البدل</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--primary);cursor:pointer"><input type="checkbox" id="assocCheckAll" onchange="toggleAssocAll(this.checked)" style="accent-color:var(--primary)"> انتخاب همه نمایش‌داده‌شده</label>
+          <select id="assocBulkStatus" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:Vazirmatn,sans-serif;font-size:12px"><option value="__keep__">وضعیت: بدون تغییر</option><option value="">پاک کردن وضعیت</option><option>کاندیدا</option><option>عضو اصلی</option><option>علی البدل</option></select>
+          <select id="assocBulkParent" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:Vazirmatn,sans-serif;font-size:12px"><option value="__keep__">عضو از طرف: بدون تغییر</option><option value="">پاک کردن</option><option>پدر</option><option>مادر</option></select>
+          <button class="btn btn-green" onclick="applyAssocBulk()">✅ اعمال روی انتخاب‌شده‌ها</button>
+        </div>
+        <div class="table-scroll"><table><thead><tr><th></th><th>#</th><th>نام</th><th>نام خانوادگی</th><th>پایه</th><th>کلاس</th><th>وضعیت انجمن</th><th>عضو از طرف</th><th>نام والد</th><th>نام خانوادگی والد</th><th>موبایل والد</th></tr></thead><tbody id="assocBody"></tbody></table></div>
+      </div>
+
+      <div class="settings-card">
+        <h3>👥 اعضای اصلی و علی البدل</h3>
+        <div id="assocStats" style="margin-bottom:12px"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <button class="btn btn-purple" onclick="printAssocMembers()">🖨️ چاپ اعضا</button>
+          <button class="btn btn-blue" onclick="exportAssocMembersText()">📄 متنی اعضا</button>
+        </div>
+        <div id="assocMembersArea"></div>
       </div>
     </div>
   </div>
@@ -675,6 +727,7 @@ var DEFAULT_FIELDS = [
   {name:'وضعیت جسمانی',type:'select',opts:['سالم','دارای بیماری','دارای معلولیت'],section:'health',visible:true},
   {name:'توضیحات بیماری خاص',type:'textarea',section:'health',visible:true,full:true},
   {name:'نام پدر',type:'text',section:'father',visible:true},
+  {name:'نام خانوادگی پدر',type:'text',section:'father',visible:true},
   {name:'کد ملی پدر',type:'text',section:'father',visible:true,maxlen:10},
   {name:'شماره شناسنامه پدر',type:'text',section:'father',visible:true},
   {name:'سری عددی شناسنامه پدر',type:'text',section:'father',visible:true},
@@ -704,7 +757,9 @@ var DEFAULT_FIELDS = [
   {name:'تحویل',type:'select',opts:['تحویل شده','تحویل نشده'],section:'uniform',visible:true,defaultLocked:true},
   {name:'استفاده از سرویس حمل و نقل شهرداری ماهدشت',type:'select',opts:['تمایل دارم','تمایل ندارم'],section:'uniform',visible:true},
   {name:'ثبت‌نام تکمیل',type:'select',opts:['بله','خیر'],section:'registration',visible:true},
-  {name:'انتخاب برای چاپ',type:'select',opts:['بله','خیر'],section:'registration',visible:false}
+  {name:'انتخاب برای چاپ',type:'select',opts:['بله','خیر'],section:'registration',visible:false},
+  {name:'وضعیت انجمن',type:'select',opts:['کاندیدا','عضو اصلی','علی البدل'],section:'registration',visible:true},
+  {name:'والد عضو انجمن',type:'select',opts:['پدر','مادر'],section:'registration',visible:true}
 ];
 
 var SEC_LABELS = {student:'👤 دانش آموز',family:'🏠 خانوادگی',health:'🏥 سلامت',father:'👨 پدر',mother:'👩 مادر',uniform:'👕 لباس فرم',registration:'📋 ثبت‌نام'};
@@ -1760,77 +1815,353 @@ function deselectAllForPrint(){
   alert('❌ همه از پرینت لغو شدند');
 }
 
-function printSelected(){
-  var selected=allData.filter(function(r){
-    return r['انتخاب برای چاپ']==='بله'||r['انتخاب برای چاپ']===true;
-  });
-  
-  if(selected.length===0){
-    alert('❌ هیچ دانش‌آموزی برای پرینت انتخاب نشده');
-    return;
-  }
-  
-  var printWindow=window.open('','','width=900,height=1000');
-  var html='<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"><title>چاپ دانش‌آموزان</title>';
-  html+='<style>';
-  html+='body{font-family:"Tahoma","Arial";margin:8mm;padding:4mm;direction:rtl;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:9pt}';
-  html+='table{width:100%;border-collapse:collapse;margin:0;border:1px solid #333}';
-  html+='th{background:#4a90e2;color:white;font-weight:bold;border:1px solid #333;padding:4px;text-align:center;font-size:9pt}';
-  html+='td{border:1px solid #333;padding:4px;text-align:right;font-size:9pt}';
-  html+='td:first-child,th:first-child{text-align:center;white-space:nowrap;width:2.5cm}';
-  html+='tr:nth-child(even){background:#f9f9f9}';
-  html+='tr{page-break-inside:avoid}';
-  html+='.header{text-align:center;margin-bottom:4mm;font-size:11pt;font-weight:bold;border-bottom:2px solid #1a4a7a;padding-bottom:2mm}';
-  html+='@media print{body{margin:8mm;padding:4mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}table{page-break-inside:avoid;width:100%}thead{display:table-header-group}tr{page-break-inside:avoid}}';
-  html+='</style></head><body>';
-  html+='<div class="header">📋 لیست دانش‌آموزان ('+selected.length+' نفر)<br>مدرسه شهید نیاسری ۱</div>';
-  html+='<table><thead><tr><th>ردیف</th><th>نام</th><th>نام خانوادگی</th><th>کد ملی</th><th>پایه</th><th>شماره کلاس</th><th>موبایل پدر</th></tr></thead><tbody>';
-  
-  selected.forEach(function(r,i){
-    html+='<tr><td>'+(i+1)+'</td>';
-    html+='<td>'+(r['نام']||'—')+'</td>';
-    html+='<td>'+(r['نام خانوادگی']||'—')+'</td>';
-    html+='<td>'+(r['کد ملی']||'—')+'</td>';
-    html+='<td>'+(r['پایه']||'—')+'</td>';
-    html+='<td>'+(r['شماره کلاس']||'—')+'</td>';
-    html+='<td>'+(r['موبایل پدر']||'—')+'</td>';
-    html+='</tr>';
-  });
-  
-  html+='</tbody></table></body></html>';
-  
-  printWindow.document.write(html);
-  printWindow.document.close();
-  setTimeout(function(){printWindow.print();},500);
-}
 
-async function deleteRow(idx){
-  var r=allData[idx];
-  if(!confirm('حذف '+(r['نام']||'')+' '+(r['نام خانوادگی']||'')+'؟'))return;
-  var kodMelli=r['کد ملی'];
-  allData.splice(idx,1);
+// ===== انجمن اولیا و مربیان =====
+var ASSOC_STATUSES=['کاندیدا','عضو اصلی','علی البدل'];
+var ASSOC_PARENTS=['پدر','مادر'];
+var ASSOC_STATUS_F='وضعیت انجمن';
+var ASSOC_PARENT_F='والد عضو انجمن';
+var ASSOC_VIRT_LABELS={'__pname__':'نام والد (عضو انجمن)','__pfname__':'نام خانوادگی والد (عضو انجمن)','__pphone__':'موبایل والد (عضو انجمن)'};
+var ASSOC_MEM_COLS=['نام','نام خانوادگی','پایه','شماره کلاس',ASSOC_PARENT_F,'__pname__','__pfname__','__pphone__'];
+var ASSOC_ZERO_COLS=['کد ملی','سریال شناسنامه','کد پستی','موبایل پدر','موبایل مادر','موبایل شاد','تلفن منزل','__pphone__'];
+var assocFields=loadLS('assocFields',['نام','نام خانوادگی','کد ملی','پایه','شماره کلاس',ASSOC_STATUS_F,ASSOC_PARENT_F,'__pname__','__pfname__','__pphone__']);
+var assocChecked=[];
+
+function hx(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function assocV(id){var e=document.getElementById(id);return e?e.value:'';}
+function assocLabel(k){
+  if(ASSOC_VIRT_LABELS[k]) return ASSOC_VIRT_LABELS[k];
+  var f=allFields.find(function(x){return x.name===k;});
+  return (f&&f.label)?f.label:k;
+}
+function assocVal(r,k){
+  if(k==='__pname__') return r[ASSOC_PARENT_F]==='مادر'?(r['نام مادر']||''):(r['نام پدر']||'');
+  if(k==='__pfname__') return r[ASSOC_PARENT_F]==='مادر'?(r['نام خانوادگی مادر']||''):((r['نام خانوادگی پدر']||'')||(r['نام خانوادگی']||''));
+  if(k==='__pphone__') return r[ASSOC_PARENT_F]==='مادر'?(r['موبایل مادر']||''):(r['موبایل پدر']||'');
+  var v=r[k];
+  return (v===undefined||v===null)?'':String(v);
+}
+function assocStatusOf(r){return r[ASSOC_STATUS_F]||'';}
+function assocParentOf(r){return r[ASSOC_PARENT_F]||'';}
+function assocKey(r){return String(r['کد ملی']||'');}
+function isAssocChecked(r){return assocChecked.indexOf(assocKey(r))>=0;}
+function getAssocFieldDefs(){
+  var keys=allFields.filter(function(f){return f.type!=='dob'&&f.visible!==false;}).map(function(f){return f.name;});
+  return keys.concat(['__pname__','__pfname__','__pphone__']);
+}
+function getAssocCols(){
+  var defs=getAssocFieldDefs();
+  return defs.filter(function(k){return assocFields.indexOf(k)>=0;});
+}
+function getAssocRows(){
+  var paye=assocV('assocPaye'),klass=assocV('assocClass'),st=assocV('assocStatus'),par=assocV('assocParent'),q=assocV('assocSearch').trim();
+  return allData.filter(function(r){
+    if(paye&&r['پایه']!==paye) return false;
+    if(klass&&r['شماره کلاس']!==klass) return false;
+    if(st==='none'&&assocStatusOf(r)) return false;
+    if(st&&st!=='none'&&assocStatusOf(r)!==st) return false;
+    if(par&&assocParentOf(r)!==par) return false;
+    if(q&&!assocMatchesSearch(r,q)) return false;
+    return true;
+  });
+}
+function normSearch(v){
+  var t=(v===undefined||v===null)?'':String(v);
+  return t.replace(/ي/g,'ی').replace(/ك/g,'ک').replace(/[\u200c\u200f\u200e]/g,' ')
+    .replace(/[۰-۹]/g,function(d){return String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d));})
+    .replace(/[٠-٩]/g,function(d){return String('٠١٢٣٤٥٦٧٨٩'.indexOf(d));})
+    .toLowerCase().replace(/\s+/g,' ').trim();
+}
+function assocMatchesSearch(r,q){
+  var qn=normSearch(q);
+  if(!qn) return true;
+  var hit=Object.keys(r).some(function(k){return normSearch(r[k]).indexOf(qn)>=0;});
+  if(hit) return true;
+  var combos=[
+    (r['نام']||'')+' '+(r['نام خانوادگی']||''),
+    assocVal(r,'__pname__')+' '+assocVal(r,'__pfname__'),
+    (r['نام پدر']||'')+' '+(r['نام خانوادگی پدر']||''),
+    (r['نام مادر']||'')+' '+(r['نام خانوادگی مادر']||'')
+  ];
+  return combos.some(function(c){return normSearch(c).indexOf(qn)>=0;});
+}
+function getAssocOutputRows(){
+  var rows=getAssocRows();
+  var ch=rows.filter(isAssocChecked);
+  return ch.length?ch:rows;
+}
+function getAssocMemberSections(){
+  return [
+    {title:'👑 اعضای اصلی',rows:allData.filter(function(r){return assocStatusOf(r)==='عضو اصلی';})},
+    {title:'🔁 اعضای علی البدل',rows:allData.filter(function(r){return assocStatusOf(r)==='علی البدل';})}
+  ];
+}
+function updateAssocClasses(){
+  var p=assocV('assocPaye'), sel=document.getElementById('assocClass'), cur=sel.value;
+  var set={};
+  allData.forEach(function(r){
+    if(p&&r['پایه']!==p) return;
+    var c=r['شماره کلاس']; if(c) set[c]=1;
+  });
+  var keys=Object.keys(set).sort(function(a,b){return a.localeCompare(b,'fa');});
+  sel.innerHTML='<option value="">همه کلاس‌ها</option>'+keys.map(function(k){return '<option>'+hx(k)+'</option>';}).join('');
+  if(keys.indexOf(cur)>=0) sel.value=cur;
+}
+function buildAssocFieldPanel(){
+  var defs=getAssocFieldDefs();
+  document.getElementById('assocFieldGrid').innerHTML=defs.map(function(k,i){
+    var on=assocFields.indexOf(k)>=0;
+    return '<label class="rfc-item"><input type="checkbox" '+(on?'checked':'')+' style="accent-color:var(--primary)" onchange="toggleAssocField('+i+',this.checked)"> '+hx(assocLabel(k))+'</label>';
+  }).join('');
+}
+function toggleAssocPanel(){
+  var p=document.getElementById('assocFieldPanel');
+  p.style.display=(p.style.display==='none'||!p.style.display)?'block':'none';
+  buildAssocFieldPanel();
+}
+function toggleAssocField(i,on){
+  var k=getAssocFieldDefs()[i]; if(!k) return;
+  if(on){ if(assocFields.indexOf(k)<0) assocFields.push(k); }
+  else assocFields=assocFields.filter(function(x){return x!==k;});
+  try{localStorage.setItem('assocFields',JSON.stringify(assocFields));}catch(e){}
+  renderAssoc();
+}
+function assocPersist(rec,data){
   try{localStorage.setItem('offlineData',JSON.stringify(allData));}catch(e){}
-  filteredData=allData.slice();
-  filterTable();
-  updateStats(allData);
-  updateDashStats(allData);
-  alert('✅ از پنل حذف شد');
   if(SHEETS_URL){
-    // ⚠️ کد ملی را به انگلیسی تبدیل کن (برای تطابق در Google Sheets)
-    var kodMelliEnglish=toEnglishNum(kodMelli);
     fetch(SHEETS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'delete',kodMelli:kodMelliEnglish})})
-      .then(function(res){ 
-        alert('✅ از گوگل شیت حذف شد'); 
-        document.getElementById('lastUpdate').textContent='✅ حذف شد ('+new Date().toLocaleTimeString('fa-IR')+')'; 
-      })
-      .catch(function(err){ 
-        alert('❌ خطا در حذف از گوگل شیت'); 
-        console.error(err);
-      });
+      body:JSON.stringify({action:'update',kodMelli:toEnglishNum(rec['کد ملی']),data:data})})
+      .catch(function(err){console.error('خطا:',err);});
   }
 }
+function setAssocStatus(idx,v){
+  var rec=allData[idx]; if(!rec) return;
+  rec[ASSOC_STATUS_F]=v;
+  var d={}; d[ASSOC_STATUS_F]=v;
+  assocPersist(rec,d); renderAssoc();
+}
+function setAssocParent(idx,v){
+  var rec=allData[idx]; if(!rec) return;
+  rec[ASSOC_PARENT_F]=v;
+  var d={}; d[ASSOC_PARENT_F]=v;
+  assocPersist(rec,d); renderAssoc();
+}
+function toggleAssocCheck(idx,on){
+  var rec=allData[idx]; if(!rec) return;
+  var k=assocKey(rec);
+  if(on){ if(assocChecked.indexOf(k)<0) assocChecked.push(k); }
+  else assocChecked=assocChecked.filter(function(x){return x!==k;});
+  renderAssoc();
+}
+function toggleAssocAll(on){
+  getAssocRows().forEach(function(r){
+    var k=assocKey(r);
+    if(on){ if(assocChecked.indexOf(k)<0) assocChecked.push(k); }
+    else assocChecked=assocChecked.filter(function(x){return x!==k;});
+  });
+  renderAssoc();
+}
+function clearAssocChecks(){ assocChecked=[]; renderAssoc(); }
+function applyAssocBulk(){
+  if(!assocChecked.length){alert('ابتدا دانش‌آموزان را از ستون اول جدول انتخاب کنید');return;}
+  var bs=assocV('assocBulkStatus'), bp=assocV('assocBulkParent');
+  if(bs==='__keep__'&&bp==='__keep__'){alert('نوع تغییر (وضعیت یا والد) را مشخص کنید');return;}
+  var n=0;
+  allData.forEach(function(r){
+    if(!isAssocChecked(r)) return;
+    var d={};
+    if(bs!=='__keep__'){ r[ASSOC_STATUS_F]=bs; d[ASSOC_STATUS_F]=bs; }
+    if(bp!=='__keep__'){ r[ASSOC_PARENT_F]=bp; d[ASSOC_PARENT_F]=bp; }
+    assocPersist(r,d); n++;
+  });
+  renderAssoc();
+  alert('✅ '+n+' دانش‌آموز بروزرسانی شد');
+}
+function optsHtml(list,cur){
+  return '<option value="">—</option>'+list.map(function(o){return '<option'+(o===cur?' selected':'')+'>'+o+'</option>';}).join('');
+}
+function renderAssocStats(){
+  var html=ASSOC_STATUSES.map(function(st){
+    var list=allData.filter(function(r){return assocStatusOf(r)===st;});
+    var f=list.filter(function(r){return assocParentOf(r)==='پدر';}).length;
+    var m=list.filter(function(r){return assocParentOf(r)==='مادر';}).length;
+    var n=list.length-f-m;
+    return '<div style="flex:1;min-width:180px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px">'
+      +'<div style="font-weight:800;color:#1a4a7a;margin-bottom:6px">'+st+': '+list.length+' نفر</div>'
+      +'<div style="font-size:12px;color:#444">👨 پدر: '+f+' &nbsp;|&nbsp; 👩 مادر: '+m+(n?' &nbsp;|&nbsp; نامشخص: '+n:'')+'</div></div>';
+  }).join('');
+  document.getElementById('assocStats').innerHTML='<div style="display:flex;gap:10px;flex-wrap:wrap">'+html+'</div>';
+}
+function renderAssocMembers(){
+  document.getElementById('assocMembersArea').innerHTML=getAssocMemberSections().map(function(sec){
+    return '<h4 style="color:#1a4a7a;margin:10px 0 6px">'+sec.title+' ('+sec.rows.length+' نفر)</h4>'+assocTableHtml(sec.rows,ASSOC_MEM_COLS);
+  }).join('');
+}
+function renderAssoc(){
+  updateAssocClasses();
+  buildAssocFieldPanel();
+  var rows=getAssocRows();
+  var body=document.getElementById('assocBody');
+  body.innerHTML=rows.length?rows.map(function(r,i){
+    var idx=allData.indexOf(r);
+    var ck=isAssocChecked(r);
+    return '<tr style="'+(ck?'background:#f5f3ff':'')+'">'
+      +'<td><input type="checkbox" '+(ck?'checked':'')+' onchange="toggleAssocCheck('+idx+',this.checked)"></td>'
+      +'<td>'+(i+1)+'</td>'
+      +'<td>'+hx(r['نام']||'—')+'</td>'
+      +'<td>'+hx(r['نام خانوادگی']||'—')+'</td>'
+      +'<td>'+hx(r['پایه']||'—')+'</td>'
+      +'<td>'+hx(r['شماره کلاس']||'—')+'</td>'
+      +'<td><select onchange="setAssocStatus('+idx+',this.value)">'+optsHtml(ASSOC_STATUSES,assocStatusOf(r))+'</select></td>'
+      +'<td><select onchange="setAssocParent('+idx+',this.value)">'+optsHtml(ASSOC_PARENTS,assocParentOf(r))+'</select></td>'
+      +'<td>'+hx(assocVal(r,'__pname__')||'—')+'</td>'
+      +'<td>'+hx(assocVal(r,'__pfname__')||'—')+'</td>'
+      +'<td>'+hx(assocVal(r,'__pphone__')||'—')+'</td>'
+      +'</tr>';
+  }).join(''):'<tr><td colspan="11" style="text-align:center;padding:20px;color:#94a3b8">موردی یافت نشد</td></tr>';
+  var out=getAssocOutputRows(), cols=getAssocCols();
+  var anyChecked=rows.some(isAssocChecked);
+  document.getElementById('assocOutInfo').textContent='خروجی فعلی: '+out.length+' نفر '+(anyChecked?'(دانش‌آموزان انتخاب‌شده)':'(طبق فیلترها)')+' — '+cols.length+' فیلد';
+  document.getElementById('assocCheckAll').checked=rows.length>0&&rows.every(isAssocChecked);
+  renderAssocStats();
+  renderAssocMembers();
+}
 
+// ----- ساخت خروجی‌ها -----
+function assocTableHtml(rows,cols){
+  if(!rows.length) return '<p style="color:#94a3b8;font-size:12px">موردی وجود ندارد</p>';
+  var h='<table><thead><tr><th>ردیف</th>'+cols.map(function(k){return '<th>'+hx(assocLabel(k))+'</th>';}).join('')+'</tr></thead><tbody>';
+  rows.forEach(function(r,i){
+    h+='<tr><td>'+(i+1)+'</td>'+cols.map(function(k){return '<td>'+hx(assocVal(r,k)||'—')+'</td>';}).join('')+'</tr>';
+  });
+  return h+'</tbody></table>';
+}
+function assocDocHead(title,size,orient){
+  return '<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8">'
+    +'<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">'
+    +'<style>*{margin:0;padding:0;box-sizing:border-box}'
+    +'body{font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;color:#111;padding:5mm;font-size:8.5pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'@page{size:'+size+' '+orient+';margin:5mm}'
+    +'table{border-collapse:collapse;width:100%;border:1px solid #333;margin-bottom:4mm}'
+    +'th{background:#e0e7ff;color:#1a237e;padding:3px;border:1px solid #333;font-size:8pt;font-weight:800;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'td{padding:2px 3px;border:1px solid #333;font-size:8pt;word-wrap:break-word}'
+    +'td:first-child,th:first-child{text-align:center;width:1cm}'
+    +'tr{page-break-inside:avoid}thead{display:table-header-group}'
+    +'.header{text-align:center;margin-bottom:3mm;border-bottom:1.5px solid #1a4a7a;padding-bottom:2mm}'
+    +'.header h2{color:#1a4a7a;font-size:11pt}.sec{color:#1a4a7a;font-size:10pt;margin:3mm 0 1mm}</style></head><body>'
+    +'<div class="header"><h2>🏫 مدرسه شهید نیاسری ۱</h2><p><strong>'+hx(title)+'</strong></p>'
+    +'<p>تاریخ چاپ: '+new Date().toLocaleDateString('fa-IR')+'</p></div>';
+}
+function openAssocPrint(title,size,orient,sections,cols){
+  var html=assocDocHead(title,size,orient);
+  sections.forEach(function(sec){
+    if(sec.title) html+='<div class="sec">'+sec.title+' — '+sec.rows.length+' نفر</div>';
+    html+=assocTableHtml(sec.rows,cols);
+  });
+  html+='</body></html>';
+  var w=window.open('','_blank','width=900,height=700');
+  if(!w){alert('پنجره چاپ مسدود شد');return;}
+  w.document.write(html); w.document.close();
+  setTimeout(function(){w.focus();w.print();},600);
+}
+function buildAssocText(title,sections,cols){
+  var out=[title,'تاریخ: '+new Date().toLocaleDateString('fa-IR'),''];
+  sections.forEach(function(sec){
+    if(sec.title){out.push(sec.title+' ('+sec.rows.length+' نفر)');out.push('');}
+    if(!sec.rows.length){out.push('— موردی وجود ندارد —');out.push('');return;}
+    sec.rows.forEach(function(r,i){
+      out.push((i+1)+'. '+cols.map(function(k){return assocLabel(k)+': '+(assocVal(r,k)||'—');}).join(' | '));
+    });
+    out.push('');
+  });
+  return out.join('\n');
+}
+function buildAssocCsv(rows,cols){
+  var lines=[['ردیف'].concat(cols.map(function(k){return assocLabel(k);})).join(',')];
+  rows.forEach(function(r,i){
+    var cells=cols.map(function(k){
+      var s=assocVal(r,k).replace(/"/g,'""');
+      return (ASSOC_ZERO_COLS.indexOf(k)>=0&&s)?'="'+s+'"':'"'+s+'"';
+    });
+    lines.push([i+1].concat(cells).join(','));
+  });
+  return lines.join('\n');
+}
+function dlText(content,filename){
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+content],{type:'text/plain;charset=utf-8'}));
+  a.download=filename; a.click();
+}
+function printAssocList(){
+  var cols=getAssocCols();
+  if(!cols.length){alert('فیلدی انتخاب نشده — از «انتخاب فیلدها» استفاده کنید');return;}
+  var rows=getAssocOutputRows();
+  if(!rows.length){alert('داده‌ای برای چاپ وجود ندارد');return;}
+  var def='انجمن اولیا و مربیان — '+rows.length+' نفر';
+  showPrintDialog(function(size,orient,title){
+    openAssocPrint(title||def,size,orient,[{title:'',rows:rows}],cols);
+  },{titleDefault:def});
+}
+function exportAssocText(){
+  var cols=getAssocCols();
+  if(!cols.length){alert('فیلدی انتخاب نشده');return;}
+  var rows=getAssocOutputRows();
+  if(!rows.length){alert('داده‌ای برای خروجی نیست');return;}
+  dlText(buildAssocText('انجمن اولیا و مربیان',[{title:'',rows:rows}],cols),'انجمن_اولیا.txt');
+}
+function exportAssocExcel(){
+  var cols=getAssocCols();
+  if(!cols.length){alert('فیلدی انتخاب نشده');return;}
+  var rows=getAssocOutputRows();
+  if(!rows.length){alert('داده‌ای برای خروجی نیست');return;}
+  dl(buildAssocCsv(rows,cols),'انجمن_اولیا.csv');
+}
+function printAssocMembers(){
+  var def='اعضای انجمن اولیا و مربیان';
+  showPrintDialog(function(size,orient,title){
+    openAssocPrint(title||def,size,orient,getAssocMemberSections(),ASSOC_MEM_COLS);
+  },{titleDefault:def});
+}
+function exportAssocMembersText(){
+  dlText(buildAssocText('اعضای انجمن اولیا و مربیان',getAssocMemberSections(),ASSOC_MEM_COLS),'اعضای_انجمن.txt');
+}
+
+// ===== پرینت انتخاب‌شده‌ها با فیلدهای گزارش و خروجی Excel آن =====
+function getStudentPrintCols(){
+  return studentCols.filter(function(c){return c!=='#'&&c!=='عکس'&&c!=='عملیات'&&c!=='انتخاب برای چاپ';});
+}
+function fieldLabel(fn){
+  var f=allFields.find(function(x){return x.name===fn;});
+  return (f&&f.label)?f.label:fn;
+}
+function isSelectedForPrint(r){
+  return r['انتخاب برای چاپ']==='بله'||r['انتخاب برای چاپ']===true;
+}
+function exportSelectedExcel(){
+  var sel=allData.filter(isSelectedForPrint);
+  if(!sel.length){alert('❌ هیچ دانش‌آموزی برای پرینت انتخاب نشده');return;}
+  var pf=getStudentPrintCols();
+  if(!pf.length){alert('❌ فیلدی انتخاب نشده — از «📋 انتخاب فیلدها» در تب دانش آموزان فیلد انتخاب کنید');return;}
+  var zeroF=['کد ملی','سریال شناسنامه','کد پستی','موبایل پدر','موبایل مادر','موبایل شاد','تلفن منزل'];
+  var rows=[['ردیف'].concat(pf.map(fieldLabel)).join(',')];
+  sel.forEach(function(r,i){
+    var cells=pf.map(function(fn){
+      var v=String(r[fn]||'').replace(/"/g,'""');
+      return (zeroF.indexOf(fn)>=0&&v)?'="'+v+'"':'"'+v+'"';
+    });
+    rows.push([i+1].concat(cells).join(','));
+  });
+  dl(rows.join('\n'),'انتخاب_چاپ.csv');
+}
+
+function printSelected(){
+  var selected=allData.filter(isSelectedForPrint);
+  if(!selected.length){alert('❌ هیچ دانش‌آموزی برای پرینت انتخاب نشده');return;}
+  var def='لیست دانش‌آموزان انتخاب‌شده — '+selected.length+' نفر';
+  showPrintDialog(function(size,orient,title,includeExtra){
+    doPrintCurrentList(selected,size,orient,title,includeExtra);
+  },{titleDefault:def,showExtraColsToggle:true});
+}
 function printStudentForm(){
   if(currentRowIndex<0)return;
   var r=allData[currentRowIndex];
