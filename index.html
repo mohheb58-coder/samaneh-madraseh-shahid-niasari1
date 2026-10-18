@@ -399,7 +399,11 @@ tbody td{padding:10px 13px;white-space:nowrap}
           <div><label style="font-size:12px;font-weight:600;color:var(--primary);display:block;margin-bottom:4px">جستجو</label>
             <input type="text" id="assocSearch" placeholder="جستجو: نام، نام خانوادگی دانش‌آموز، پدر یا مادر، کد ملی..." oninput="renderAssoc()" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:Vazirmatn,sans-serif;font-size:13px"></div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:12px">
+          <div><label style="font-size:12px;font-weight:600;color:var(--primary);display:block;margin-bottom:4px">مرتب‌سازی بر اساس</label>
+            <select id="assocSortField" onchange="renderAssoc()" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:Vazirmatn,sans-serif;font-size:13px;min-width:200px"><option value="">بدون مرتب‌سازی</option></select></div>
+          <div><label style="font-size:12px;font-weight:600;color:var(--primary);display:block;margin-bottom:4px">ترتیب</label>
+            <select id="assocSortDir" onchange="renderAssoc()" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:Vazirmatn,sans-serif;font-size:13px"><option value="asc">صعودی (الف → ی / ۰ → ۹)</option><option value="desc">نزولی</option></select></div>
           <button class="btn btn-gray" onclick="toggleAssocPanel()">🗂️ انتخاب فیلدها</button>
           <button class="btn btn-purple" onclick="printAssocList()">🖨️ چاپ</button>
           <button class="btn btn-blue" onclick="exportAssocText()">📄 خروجی متنی</button>
@@ -418,7 +422,7 @@ tbody td{padding:10px 13px;white-space:nowrap}
           <select id="assocBulkParent" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:Vazirmatn,sans-serif;font-size:12px"><option value="__keep__">عضو از طرف: بدون تغییر</option><option value="">پاک کردن</option><option>پدر</option><option>مادر</option></select>
           <button class="btn btn-green" onclick="applyAssocBulk()">✅ اعمال روی انتخاب‌شده‌ها</button>
         </div>
-        <div class="table-scroll"><table><thead><tr><th></th><th>#</th><th>نام</th><th>نام خانوادگی</th><th>پایه</th><th>کلاس</th><th>وضعیت انجمن</th><th>عضو از طرف</th><th>نام والد</th><th>نام خانوادگی والد</th><th>موبایل والد</th></tr></thead><tbody id="assocBody"></tbody></table></div>
+        <div class="table-scroll"><table><thead id="assocHead"></thead><tbody id="assocBody"></tbody></table></div>
       </div>
 
       <div class="settings-card">
@@ -1855,7 +1859,7 @@ function getAssocCols(){
 }
 function getAssocRows(){
   var paye=assocV('assocPaye'),klass=assocV('assocClass'),st=assocV('assocStatus'),par=assocV('assocParent'),q=assocV('assocSearch').trim();
-  return allData.filter(function(r){
+  return sortAssocRows(allData.filter(function(r){
     if(paye&&r['پایه']!==paye) return false;
     if(klass&&r['شماره کلاس']!==klass) return false;
     if(st==='none'&&assocStatusOf(r)) return false;
@@ -1863,7 +1867,7 @@ function getAssocRows(){
     if(par&&assocParentOf(r)!==par) return false;
     if(q&&!assocMatchesSearch(r,q)) return false;
     return true;
-  });
+  }));
 }
 function normSearch(v){
   var t=(v===undefined||v===null)?'':String(v);
@@ -1884,6 +1888,64 @@ function assocMatchesSearch(r,q){
     (r['نام مادر']||'')+' '+(r['نام خانوادگی مادر']||'')
   ];
   return combos.some(function(c){return normSearch(c).indexOf(qn)>=0;});
+}
+function sortAssocRows(rows){
+  var key=assocV('assocSortField');
+  if(!key) return rows;
+  var dir=assocV('assocSortDir')==='desc'?-1:1;
+  var numRe=/^-?\d+(\.\d+)?$/;
+  return rows.slice().sort(function(a,b){
+    var va=normSearch(assocVal(a,key)), vb=normSearch(assocVal(b,key));
+    // خالی‌ها همیشه آخر لیست می‌مانند
+    if(va===''&&vb==='') return 0;
+    if(va==='') return 1;
+    if(vb==='') return -1;
+    var c;
+    if(numRe.test(va)&&numRe.test(vb)) c=parseFloat(va)-parseFloat(vb);
+    else c=va.localeCompare(vb,'fa');
+    return c*dir;
+  });
+}
+function buildAssocSortOptions(){
+  var sel=document.getElementById('assocSortField');
+  if(!sel) return;
+  var cur=sel.value;
+  sel.innerHTML='<option value="">بدون مرتب‌سازی</option>'+getAssocFieldDefs().map(function(k){
+    return '<option value="'+hx(k)+'"'+(k===cur?' selected':'')+'>'+hx(assocLabel(k))+'</option>';
+  }).join('');
+}
+// ستون‌های جدول: فیلدهای انتخابی + وضعیت و والد (همیشه آخر جدول)
+function getAssocTableCols(){
+  var data=getAssocCols().filter(function(k){return k!==ASSOC_STATUS_F&&k!==ASSOC_PARENT_F;});
+  return data.concat([ASSOC_STATUS_F,ASSOC_PARENT_F]);
+}
+function renderAssocHead(cols){
+  var cur=assocV('assocSortField'), dir=assocV('assocSortDir');
+  var h='<tr><th></th><th>#</th>';
+  cols.forEach(function(k,i){
+    var arrow=(k===cur)?(dir==='desc'?' ▼':' ▲'):'';
+    h+='<th style="cursor:pointer;user-select:none;white-space:nowrap" title="کلیک برای مرتب‌سازی" onclick="sortAssocByCol('+i+')">'+hx(assocLabel(k))+arrow+'</th>';
+  });
+  return h+'</tr>';
+}
+function sortAssocByCol(i){
+  var k=getAssocTableCols()[i]; if(!k) return;
+  var sf=document.getElementById('assocSortField'), sd=document.getElementById('assocSortDir');
+  if(sf.value===k) sd.value=(sd.value==='asc')?'desc':'asc';
+  else { sf.value=k; sd.value='asc'; }
+  renderAssoc();
+}
+function assocRowHtml(r,i,cols){
+  var idx=allData.indexOf(r), ck=isAssocChecked(r);
+  var h='<tr style="'+(ck?'background:#f5f3ff':'')+'">'
+    +'<td><input type="checkbox" '+(ck?'checked':'')+' onchange="toggleAssocCheck('+idx+',this.checked)"></td>'
+    +'<td>'+(i+1)+'</td>';
+  cols.forEach(function(k){
+    if(k===ASSOC_STATUS_F) h+='<td><select onchange="setAssocStatus('+idx+',this.value)">'+optsHtml(ASSOC_STATUSES,assocStatusOf(r))+'</select></td>';
+    else if(k===ASSOC_PARENT_F) h+='<td><select onchange="setAssocParent('+idx+',this.value)">'+optsHtml(ASSOC_PARENTS,assocParentOf(r))+'</select></td>';
+    else h+='<td>'+hx(assocVal(r,k)||'—')+'</td>';
+  });
+  return h+'</tr>';
 }
 function getAssocOutputRows(){
   var rows=getAssocRows();
@@ -2000,25 +2062,13 @@ function renderAssocMembers(){
 function renderAssoc(){
   updateAssocClasses();
   buildAssocFieldPanel();
+  buildAssocSortOptions();
   var rows=getAssocRows();
   var body=document.getElementById('assocBody');
-  body.innerHTML=rows.length?rows.map(function(r,i){
-    var idx=allData.indexOf(r);
-    var ck=isAssocChecked(r);
-    return '<tr style="'+(ck?'background:#f5f3ff':'')+'">'
-      +'<td><input type="checkbox" '+(ck?'checked':'')+' onchange="toggleAssocCheck('+idx+',this.checked)"></td>'
-      +'<td>'+(i+1)+'</td>'
-      +'<td>'+hx(r['نام']||'—')+'</td>'
-      +'<td>'+hx(r['نام خانوادگی']||'—')+'</td>'
-      +'<td>'+hx(r['پایه']||'—')+'</td>'
-      +'<td>'+hx(r['شماره کلاس']||'—')+'</td>'
-      +'<td><select onchange="setAssocStatus('+idx+',this.value)">'+optsHtml(ASSOC_STATUSES,assocStatusOf(r))+'</select></td>'
-      +'<td><select onchange="setAssocParent('+idx+',this.value)">'+optsHtml(ASSOC_PARENTS,assocParentOf(r))+'</select></td>'
-      +'<td>'+hx(assocVal(r,'__pname__')||'—')+'</td>'
-      +'<td>'+hx(assocVal(r,'__pfname__')||'—')+'</td>'
-      +'<td>'+hx(assocVal(r,'__pphone__')||'—')+'</td>'
-      +'</tr>';
-  }).join(''):'<tr><td colspan="11" style="text-align:center;padding:20px;color:#94a3b8">موردی یافت نشد</td></tr>';
+  var tableCols=getAssocTableCols();
+  document.getElementById('assocHead').innerHTML=renderAssocHead(tableCols);
+  body.innerHTML=rows.length?rows.map(function(r,i){return assocRowHtml(r,i,tableCols);}).join('')
+    :'<tr><td colspan="'+(tableCols.length+2)+'" style="text-align:center;padding:20px;color:#94a3b8">موردی یافت نشد</td></tr>';
   var out=getAssocOutputRows(), cols=getAssocCols();
   var anyChecked=rows.some(isAssocChecked);
   document.getElementById('assocOutInfo').textContent='خروجی فعلی: '+out.length+' نفر '+(anyChecked?'(دانش‌آموزان انتخاب‌شده)':'(طبق فیلترها)')+' — '+cols.length+' فیلد';
