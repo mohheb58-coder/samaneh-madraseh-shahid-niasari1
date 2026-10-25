@@ -837,7 +837,7 @@ function buildSettingsUI() {
       +'</div></div>';
   }).join('');
 
-  var vis2 = allFields.filter(function(f){ return f.visible!==false && f.type!=='dob'; });
+  var vis2 = allFields.filter(function(f){ return f.visible!==false && (f.type!=='dob' || f.name==='__dob__'); });
   document.getElementById('reqGrid').innerHTML = vis2.map(function(f){
     var on = reqFields.includes(f.name);
     return '<label class="check-item'+(on?' on-req':'')+'" id="ri_'+esc(f.name)+'">'
@@ -917,10 +917,35 @@ async function saveAllSettings(){
   }catch(e){alert('❌ خطا در ذخیره');}
 }
 
+
+// فیلدهای سال/ماه/روز تولد در allFields وجود ندارند (فقط __dob__) ولی باید در جدول/گزارش/چاپ قابل انتخاب باشند
+var DOB_PARTS=['سال تولد','ماه تولد','روز تولد'];
+// ستون ادغام‌شده تاریخ تولد: سال/ماه/روز از چپ به راست در یک ستون
+var DOB_MERGED='تاریخ تولد';
+function dobMerged(r,plain){
+  var y=String(r['سال تولد']||'').trim(),m=String(r['ماه تولد']||'').trim(),d=String(r['روز تولد']||'').trim();
+  if(!y&&!m&&!d) return '';
+  var t=[y||'—',m||'—',d||'—'].join('/');
+  return plain?t:'\u202A'+t+'\u202C';
+}
+function dobNum(r){
+  var f=function(k){return parseInt(String(r[k]||'').replace(/[۰-۹]/g,function(c){return '۰۱۲۳۴۵۶۷۸۹'.indexOf(c);}),10)||0;};
+  return String(f('سال تولد')*10000+f('ماه تولد')*100+f('روز تولد'));
+}
+function rv(r,fn,plain){ return fn===DOB_MERGED?dobMerged(r,plain):r[fn]; }
+
+function isDobVisible(){
+  var d=allFields.find(function(f){return f.name==='__dob__';});
+  return !d||d.visible!==false;
+}
+function isReportFieldAvailable(fn){
+  if(DOB_PARTS.indexOf(fn)>-1||fn===DOB_MERGED) return isDobVisible();
+  return !!allFields.find(function(f){return f.name===fn&&f.visible!==false;});
+}
 function buildReportFieldsGrid(){
   var vis=allFields.filter(function(f){return f.visible!==false&&f.type!=='dob';});
-  var extraDOB=[{name:'سال تولد',label:'سال تولد'},{name:'ماه تولد',label:'ماه تولد'},{name:'روز تولد',label:'روز تولد'}];
-  var allVis=vis.concat(extraDOB.filter(function(e){return !vis.find(function(f){return f.name===e.name;});}));
+  var extraDOB=[{name:'سال تولد',label:'سال تولد'},{name:'ماه تولد',label:'ماه تولد'},{name:'روز تولد',label:'روز تولد'},{name:DOB_MERGED,label:'تاریخ تولد (سال/ماه/روز در یک ستون)'}];
+  var allVis=vis.concat(isDobVisible()?extraDOB.filter(function(e){return !vis.find(function(f){return f.name===e.name;});}):[]);
   var allChecked=allVis.every(function(f){return reportSelectedFields.includes(f.name);});
   var selAllBtn='<div style="grid-column:1/-1;margin-bottom:6px"><label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--primary);cursor:pointer;padding:5px 10px;background:#e0e7ff;border-radius:7px;border:1px solid #a5b4fc"><input type="checkbox" '+(allChecked?'checked':'')+' style="accent-color:var(--primary);width:14px;height:14px" onchange="toggleAllRF(this)"> انتخاب همه</label></div>';
   document.getElementById('reportFieldsGrid').innerHTML=selAllBtn+allVis.map(function(f){
@@ -988,8 +1013,8 @@ function removeReportExtraCol(i){
 }
 function toggleAllRF(el){
   var vis=allFields.filter(function(f){return f.visible!==false&&f.type!=='dob';});
-  var extraDOB=[{name:'سال تولد'},{name:'ماه تولد'},{name:'روز تولد'}];
-  var allVis=vis.concat(extraDOB.filter(function(e){return !vis.find(function(f){return f.name===e.name;}); }));
+  var extraDOB=[{name:'سال تولد'},{name:'ماه تولد'},{name:'روز تولد'},{name:DOB_MERGED}];
+  var allVis=vis.concat(isDobVisible()?extraDOB.filter(function(e){return !vis.find(function(f){return f.name===e.name;}); }):[]);
   if(el.checked){reportSelectedFields=allVis.map(function(f){return f.name;});}
   else{reportSelectedFields=[];}
   try{localStorage.setItem('reportSelectedFields',JSON.stringify(reportSelectedFields));}catch(e){}
@@ -1321,7 +1346,7 @@ function doPrintCurrentList(data,size,orient,customTitle,includeExtra){
 
   data.forEach(function(r,i){
     content+='<tr><td>'+pn(i+1)+'</td>';
-    sf.forEach(function(fn){content+='<td>'+pn(r[fn]||'—')+'</td>';});
+    sf.forEach(function(fn){content+='<td>'+pn(rv(r,fn)||'—')+'</td>';});
     extraCols.forEach(function(c){content+='<td style="min-width:'+(c.width||4)+'cm;padding:6px 4px">&nbsp;</td>';});
     content+='</tr>';
   });
@@ -1349,7 +1374,7 @@ function sortBy(col){
   var data=filteredData.length?filteredData:allData;
   data.sort(function(a,b){
     if(col==='تحویل') return (deliveryRank(a[col])-deliveryRank(b[col]))*sortDir;
-    var av=a[col]||'', bv=b[col]||'';
+    var av=col===DOB_MERGED?dobNum(a):(a[col]||''), bv=col===DOB_MERGED?dobNum(b):(b[col]||'');
     var an=parseFloat(av), bn=parseFloat(bv);
     if(!isNaN(an)&&!isNaN(bn)) return (an-bn)*sortDir;
     return av.localeCompare(bv,'fa')*sortDir;
@@ -1364,6 +1389,7 @@ function getStudentColDefs(){
   var fieldCols=allFields.filter(function(f){return f.visible!==false&&f.type!=='dob';})
     .map(function(f){return {key:f.name,label:f.label||f.name};});
   var tailCols=[{key:'تاریخ ثبت',label:'تاریخ ثبت'},{key:'عملیات',label:'عملیات'}];
+  if(isDobVisible()){ DOB_PARTS.forEach(function(n){ if(!fieldCols.find(function(fc){return fc.key===n;})) fieldCols.push({key:n,label:n}); }); fieldCols.push({key:DOB_MERGED,label:'تاریخ تولد (یک ستون)'}); }
   var seen={};var result=[];
   baseCols.forEach(function(b){seen[b.key]=1;result.push(b);});
   fieldCols.forEach(function(fc){if(!seen[fc.key]){seen[fc.key]=1;result.push(fc);}});
@@ -1440,6 +1466,7 @@ function renderTable(data){
       'کد ملی':'<span style="font-size:12px">'+(r['کد ملی']||'—')+'</span>',
       'پایه':'<span class="badge badge-blue">'+(r['پایه']||'—')+'</span>',
       'شماره کلاس':(r['شماره کلاس']||'—'),
+      'تاریخ تولد':(dobMerged(r)||'—'),
       'موبایل پدر':(r['موبایل پدر']||'—'),
       'لباس فرم مدرسه':(r['لباس فرم مدرسه']||'—'),'تحویل':checkboxDelivery,'تاریخ ثبت':(r['تاریخ ثبت']||'—'),
       'ثبت‌نام تکمیل':checkboxCompleted,
@@ -2196,7 +2223,7 @@ function exportSelectedExcel(){
   var rows=[['ردیف'].concat(pf.map(fieldLabel)).join(',')];
   sel.forEach(function(r,i){
     var cells=pf.map(function(fn){
-      var v=String(r[fn]||'').replace(/"/g,'""');
+      var v=String(rv(r,fn,true)||'').replace(/"/g,'""');
       return (zeroF.indexOf(fn)>=0&&v)?'="'+v+'"':'"'+v+'"';
     });
     rows.push([i+1].concat(cells).join(','));
@@ -2311,11 +2338,11 @@ function rptSortBy(col){
   renderClassReport();
 }
 function renderClassReport(){
-  var sf=reportSelectedFields.filter(function(fn){return allFields.find(function(f){return f.name===fn&&f.visible!==false;});});
+  var sf=reportSelectedFields.filter(isReportFieldAvailable);
   if(!sf.length){alert('حداقل یک فیلد انتخاب کنید');return;}
   if(rptSortCol){
     classReportData.sort(function(a,b){
-      var av=a[rptSortCol]||'', bv=b[rptSortCol]||'';
+      var av=rptSortCol===DOB_MERGED?dobNum(a):(a[rptSortCol]||''), bv=rptSortCol===DOB_MERGED?dobNum(b):(b[rptSortCol]||'');
       var an=parseFloat(av), bn=parseFloat(bv);
       if(!isNaN(an)&&!isNaN(bn)) return (an-bn)*rptSortDir;
       return av.localeCompare(bv,'fa')*rptSortDir;
@@ -2326,7 +2353,7 @@ function renderClassReport(){
   var sortInfo=rptSortCol?'<span style="font-size:11px;color:var(--text-muted);font-weight:400;margin-right:8px">مرتب: '+rptSortCol+(rptSortDir===1?' ▲':' ▼')+'</span>':'';
   var rows=classReportData.map(function(r,i){
     var extraCells=reportExtraCols.map(function(){return '<td style="min-width:60px"></td>';}).join('');
-    return '<tr><td style="text-align:center">'+(i+1)+'</td>'+sf.map(function(fn){return '<td>'+(r[fn]||'—')+'</td>';}).join('')+extraCells+'</tr>';
+    return '<tr><td style="text-align:center">'+(i+1)+'</td>'+sf.map(function(fn){return '<td>'+(rv(r,fn)||'—')+'</td>';}).join('')+extraCells+'</tr>';
   }).join('');
   var headers='<th>#</th>'+sf.map(function(fn){
     var cls='sortable'+(rptSortCol===fn?(rptSortDir===1?' sort-asc':' sort-desc'):'');
@@ -2349,7 +2376,7 @@ function printClassReport(){
 }
 function doPrintClassReport(size,orient,customTitle){
   var paye=document.getElementById('reportPaye').value,klass=document.getElementById('reportClass').value;
-  var sf=reportSelectedFields.filter(function(fn){return allFields.find(function(f){return f.name===fn&&f.visible!==false;});});
+  var sf=reportSelectedFields.filter(isReportFieldAvailable);
   if(!sf.length){alert('فیلدی انتخاب نشده');return;}
   var title=(customTitle!==undefined&&customTitle!==null&&customTitle!=='')?customTitle:((paye?'پایه '+paye:'همه پایه‌ها')+(klass?' — '+(klass==='—'?'بدون کلاس':'کلاس '+klass):''));
   
@@ -2385,7 +2412,7 @@ function doPrintClassReport(size,orient,customTitle){
   classReportData.forEach(function(r,i){
     var pn=function(s){return String(s).replace(/[0-9]/g,function(d){return'۰۱۲۳۴۵۶۷۸۹'.charAt(parseInt(d));});};
     content+='<tr><td>'+pn(i+1)+'</td>';
-    sf.forEach(function(fn){content+='<td>'+pn(r[fn]||'—')+'</td>';});
+    sf.forEach(function(fn){content+='<td>'+pn(rv(r,fn)||'—')+'</td>';});
     reportExtraCols.forEach(function(c){content+='<td style="min-width:'+(c.width||4)+'cm;padding:6px 4px">&nbsp;</td>';});
     content+='</tr>';
   });
@@ -2399,9 +2426,9 @@ function doPrintClassReport(size,orient,customTitle){
 
 function exportClassExcel(){
   if(!classReportData.length){alert('ابتدا گزارش را نمایش دهید');return;}
-  var sf=reportSelectedFields.filter(function(fn){return allFields.find(function(f){return f.name===fn&&f.visible!==false;});});
+  var sf=reportSelectedFields.filter(isReportFieldAvailable);
   var rows=[['ردیف'].concat(sf).join(',')];
-  classReportData.forEach(function(r,i){rows.push([i+1].concat(sf.map(function(fn){return '"'+(r[fn]||'').toString().replace(/"/g,'""')+'"';})).join(','));});
+  classReportData.forEach(function(r,i){rows.push([i+1].concat(sf.map(function(fn){return '"'+(rv(r,fn,true)||'').toString().replace(/"/g,'""')+'"';})).join(','));});
   dl(rows.join('\n'),'لیست_کلاس.csv');
 }
 
