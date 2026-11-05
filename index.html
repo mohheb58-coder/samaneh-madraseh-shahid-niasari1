@@ -190,7 +190,8 @@ tbody td{padding:10px 13px;white-space:nowrap}
     <button class="tab-btn" onclick="switchTab('tabStudents',this)">👥 دانش آموزان</button>
     <button class="tab-btn" onclick="switchTab('tabImport',this)">📥 ورودی Excel</button>
     <button class="tab-btn" onclick="switchTab('tabReport',this)">📋 گزارش کلاسی</button>
-    <button class="tab-btn" onclick="switchTab('tabAssoc',this);renderAssoc()">🏛️ انجمن اولیا</button>
+    <button class="tab-btn" onclick="switchTab('tabPhotos',this);renderPhotoTab()">📷 عکس‌ها</button>
+<button class="tab-btn" onclick="switchTab('tabAssoc',this);renderAssoc()">🏛️ انجمن اولیا</button>
     <button class="tab-btn" id="settingsTabBtn" onclick="openSettingsWithPassword(this)">⚙️ تنظیمات</button>
   </div>
 
@@ -383,7 +384,20 @@ tbody td{padding:10px 13px;white-space:nowrap}
     </div>
   </div>
 
-  <div id="tabAssoc" class="tab-content">
+  <div id="tabPhotos" class="tab-content">
+  <div class="toolbar" style="flex-wrap:wrap;gap:8px;">
+    <select class="filter-sel" id="phPaye" onchange="phPayeChanged()"><option value="">همه پایه‌ها</option><option>اول</option><option>دوم</option><option>سوم</option><option>چهارم</option><option>پنجم</option><option>ششم</option></select>
+    <select class="filter-sel" id="phClass" onchange="renderPhotoTab()"><option value="">همه کلاس‌ها</option></select>
+    <select class="filter-sel" id="phStatus" onchange="renderPhotoTab()"><option value="all">همه دانش‌آموزان</option><option value="with">فقط دارای عکس</option><option value="without">فقط بدون عکس</option></select>
+    <button class="btn btn-primary" onclick="printPhotoGrid()">🖨️ چاپ همه کلاس‌ها (هر کلاس یک A4)</button>
+    <button class="btn" onclick="printNoPhotoList()">🖨️ چاپ بدون عکس</button>
+    <button class="btn" onclick="exportNoPhotoCSV()">⬇️ CSV بدون عکس</button>
+    <button class="btn btn-primary" onclick="downloadPhotosZip()">📦 دانلود عکس‌ها (ZIP، با نام دانش‌آموز)</button>
+  </div>
+  <div id="phSummary" style="margin:12px 0;"></div>
+  <div id="phContent"></div>
+</div>
+<div id="tabAssoc" class="tab-content">
     <div class="content">
       <div class="settings-card">
         <h3>🏛️ انجمن اولیا و مربیان</h3>
@@ -683,6 +697,393 @@ function changeSettingsPassInline(){
   document.getElementById('oldSettingsPass').value='';
   document.getElementById('newSettingsPass').value='';
   m.style.color='var(--success)'; m.textContent='✅ رمز تنظیمات تغییر کرد';
+}
+
+
+// ===================== تب عکس‌ها =====================
+var PH_PAYE_ORDER=['اول','دوم','سوم','چهارم','پنجم','ششم'];
+function phHasPhoto(r){
+  var p=String(r['عکس']||'');
+  return p.length>20 && (p.indexOf('data:image')===0 || p.indexOf('http')===0);
+}
+function phNum(v){
+  return String(v==null?'':v).replace(/[\u06F0-\u06F9]/g,function(d){return String(d.charCodeAt(0)-0x06F0);}).replace(/[\u0660-\u0669]/g,function(d){return String(d.charCodeAt(0)-0x0660);}).trim();
+}
+function phSort(rows){
+  return rows.slice().sort(function(a,b){
+    var pa=PH_PAYE_ORDER.indexOf(a['پایه']), pb=PH_PAYE_ORDER.indexOf(b['پایه']);
+    pa=pa<0?99:pa; pb=pb<0?99:pb;
+    if(pa!==pb) return pa-pb;
+    var ca=parseFloat(phNum(a['شماره کلاس']))||0, cb=parseFloat(phNum(b['شماره کلاس']))||0;
+    if(ca!==cb) return ca-cb;
+    var fa=String(a['نام خانوادگی']||''), fb=String(b['نام خانوادگی']||'');
+    return fa.localeCompare(fb,'fa') || String(a['نام']||'').localeCompare(String(b['نام']||''),'fa');
+  });
+}
+function phPayeChanged(){ phFillClasses(); renderPhotoTab(); }
+function phFillClasses(){
+  var paye=document.getElementById('phPaye').value;
+  var cur=document.getElementById('phClass').value;
+  var classes=[...new Set(allData.filter(function(r){return !paye||r['پایه']===paye;}).map(function(r){return phNum(r['شماره کلاس']);}).filter(Boolean))]
+    .sort(function(a,b){return (parseFloat(a)||0)-(parseFloat(b)||0);});
+  var cf=document.getElementById('phClass');
+  cf.innerHTML='<option value="">همه کلاس‌ها</option>'+classes.map(function(c){return '<option>'+c+'</option>';}).join('');
+  if(classes.indexOf(cur)>=0) cf.value=cur;
+}
+function phFiltered(){
+  var paye=document.getElementById('phPaye').value;
+  var klass=document.getElementById('phClass').value;
+  return phSort(allData.filter(function(r){
+    if(paye && r['پایه']!==paye) return false;
+    if(klass && phNum(r['شماره کلاس'])!==klass) return false;
+    return true;
+  }));
+}
+function phGroupLabel(r){
+  return 'پایه '+(r['پایه']||'—')+' – کلاس '+(phNum(r['شماره کلاس'])||'—');
+}
+// گروه‌بندی بر اساس پایه و کلاس (همه دانش‌آموزان فیلتر، با یا بدون عکس)
+function phGroupsNow(){
+  var groups=[], map={};
+  phFiltered().forEach(function(r){
+    var g=phGroupLabel(r);
+    if(!map[g]){ map[g]={title:g,rows:[]}; groups.push(map[g]); }
+    map[g].rows.push(r);
+  });
+  return groups;
+}
+
+// کارت دانش‌آموز: عکس یا آدمک + دکمه بارگذاری عکس
+function phCardHtml(r){
+  var idx=allData.indexOf(r);
+  var has=phHasPhoto(r);
+  var box = has
+    ? '<img src="'+r['عکس']+'" style="width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:8px;display:block;" onerror="this.style.display=\'none\'">'
+    : '<div style="width:100%;aspect-ratio:3/4;border-radius:8px;background:#eef2f7;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#9ca3af;">'+
+        '<svg viewBox="0 0 24 24" width="56" height="56"><circle cx="12" cy="8" r="4.2" fill="#9ca3af"/><path d="M4 21c0-4.6 3.6-7.4 8-7.4s8 2.8 8 7.4z" fill="#9ca3af"/></svg>'+
+        '<div style="font-size:11px;margin-top:4px;">بدون عکس</div></div>';
+  return '<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center;">'+
+    box+
+    '<div style="font-size:12px;font-weight:700;margin-top:6px;">'+hx(r['نام']||'')+' '+hx(r['نام خانوادگی']||'')+'</div>'+
+    '<div style="font-size:11px;color:var(--text-muted);">'+hx(phGroupLabel(r))+'</div>'+
+    '<label style="display:inline-block;margin-top:6px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:8px;background:#e0e7ff;color:#1a237e;cursor:pointer;">📤 '+(has?'تغییر عکس':'بارگذاری عکس')+
+      '<input type="file" accept="image/*" style="display:none" onchange="phUpload('+idx+',this)"></label>'+
+    '</div>';
+}
+
+function renderPhotoTab(){
+  if(!document.getElementById('phPaye')) return;
+  if(document.getElementById('phClass').options.length<=1) phFillClasses();
+  var all=phFiltered();
+  var st=document.getElementById('phStatus').value;
+  var withP=all.filter(phHasPhoto), noP=all.filter(function(r){return !phHasPhoto(r);});
+  var pct=all.length?Math.round(withP.length*100/all.length):0;
+  document.getElementById('phSummary').innerHTML =
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;">'+
+    '<span style="padding:6px 12px;border-radius:999px;background:#e0e7ff;color:#1a237e;font-weight:700;">👥 کل: '+toPersianNum(all.length)+'</span>'+
+    '<span style="padding:6px 12px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:700;">📷 دارای عکس: '+toPersianNum(withP.length)+' ('+toPersianNum(pct)+'٪)</span>'+
+    '<span style="padding:6px 12px;border-radius:999px;background:#fee2e2;color:#991b1b;font-weight:700;">⚠️ بدون عکس: '+toPersianNum(noP.length)+'</span>'+
+    '</div>';
+
+  var groups=phGroupsNow();
+  window._phGroups=groups;
+  var html='';
+  groups.forEach(function(g,gi){
+    var rows = st==='with' ? g.rows.filter(phHasPhoto) : (st==='without' ? g.rows.filter(function(r){return !phHasPhoto(r);}) : g.rows);
+    if(!rows.length) return;
+    var cntPhoto=g.rows.filter(phHasPhoto).length;
+    html+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;background:#f1f5f9;padding:8px 12px;border-radius:10px;margin:14px 0 8px;">'+
+      '<div style="font-weight:800;">'+hx(g.title)+' <span style="font-size:12px;color:var(--text-muted);font-weight:600;">('+toPersianNum(g.rows.length)+' نفر – عکس: '+toPersianNum(cntPhoto)+')</span></div>'+
+      '<div style="display:flex;gap:6px;">'+
+        '<button class="btn btn-primary" style="font-size:12px;padding:6px 12px;" onclick="phClassAction('+gi+',\'print\')">🖨️ چاپ A4</button>'+
+        '<button class="btn" style="font-size:12px;padding:6px 12px;" onclick="phClassAction('+gi+',\'download\')">⬇️ دانلود</button>'+
+        '<button class="btn" style="font-size:12px;padding:6px 12px;" onclick="phClassAction('+gi+',\'copy\')">📋 کپی</button>'+
+      '</div></div>';
+    html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;">'+rows.map(phCardHtml).join('')+'</div>';
+  });
+  if(!html) html='<div style="color:var(--text-muted);padding:10px;">دانش‌آموزی با این فیلتر وجود ندارد</div>';
+
+  if(st!=='with' && noP.length){
+    html+='<div style="font-weight:800;margin:18px 0 8px;color:#991b1b;">⚠️ فهرست دانش‌آموزان بدون عکس</div>'+phNoPhotoTable(noP);
+  }
+  document.getElementById('phContent').innerHTML=html;
+}
+
+function phNoPhotoTable(rows){
+  var h='<table><thead><tr><th>ردیف</th><th>نام</th><th>نام خانوادگی</th><th>پایه</th><th>شماره کلاس</th><th>موبایل پدر</th></tr></thead><tbody>';
+  var lastG='', n=0;
+  rows.forEach(function(r){
+    var g=phGroupLabel(r);
+    if(g!==lastG){ h+='<tr><td colspan="6" style="background:#f1f5f9;font-weight:700;">'+hx(g)+'</td></tr>'; lastG=g; n=0; }
+    n++;
+    h+='<tr><td>'+toPersianNum(n)+'</td><td>'+hx(r['نام']||'')+'</td><td>'+hx(r['نام خانوادگی']||'')+'</td><td>'+hx(r['پایه']||'')+'</td><td>'+hx(phNum(r['شماره کلاس']))+'</td><td>'+hx(r['موبایل پدر']||'')+'</td></tr>';
+  });
+  return h+'</tbody></table>';
+}
+
+// بارگذاری عکس از همین تب: فشرده‌سازی، ذخیره در پنل و ارسال به شیت
+function phUpload(idx, input){
+  var f=input.files&&input.files[0];
+  if(!f||!allData[idx]) return;
+  if(f.size>8*1024*1024){ alert('عکس باید کمتر از ۸MB باشد'); input.value=''; return; }
+  var rd=new FileReader();
+  rd.onload=function(e){
+    var img=new Image();
+    img.onload=function(){
+      var maxSize=240, w=img.width, h=img.height;
+      if(w>h){ if(w>maxSize){ h=Math.round(h*maxSize/w); w=maxSize; } }
+      else { if(h>maxSize){ w=Math.round(w*maxSize/h); h=maxSize; } }
+      var cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      var dataUrl=cv.toDataURL('image/jpeg',0.75);
+      allData[idx]['عکس']=dataUrl;
+      try{ localStorage.setItem('offlineData',JSON.stringify(allData)); }catch(err){}
+      renderPhotoTab();
+      if(SHEETS_URL){
+        var kd=toEnglishNum(allData[idx]['کد ملی']);
+        fetch(SHEETS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({action:'update',kodMelli:kd,data:{'عکس':dataUrl}})})
+          .then(function(){ alert('✅ عکس ذخیره و به گوگل شیت ارسال شد'); })
+          .catch(function(){ alert('❌ خطا در ارسال عکس به گوگل شیت'); });
+      } else {
+        alert('✅ عکس در پنل ذخیره شد (آدرس گوگل شیت تنظیم نشده است)');
+      }
+    };
+    img.src=e.target.result;
+  };
+  rd.readAsDataURL(f);
+  input.value='';
+}
+
+// ساخت صفحه A4 برای هر کلاس (عکس یا آدمک + نام، ۴ ستونه)
+function phClassCanvas(rows, title){
+  return new Promise(function(resolve){
+    var W=1240, H=1754;
+    var c=document.createElement('canvas'); c.width=W; c.height=H;
+    var g=c.getContext('2d');
+    g.fillStyle='#ffffff'; g.fillRect(0,0,W,H);
+    g.textAlign='center'; g.textBaseline='top'; g.direction='rtl';
+    g.fillStyle='#1a237e'; g.font='bold 42px Tahoma, Vazirmatn, sans-serif';
+    g.fillText(title, W/2, 46);
+    g.fillStyle='#444'; g.font='22px Tahoma, Vazirmatn, sans-serif';
+    g.fillText('تعداد: '+toPersianNum(rows.length)+' نفر', W/2, 102);
+    g.strokeStyle='#1a237e'; g.lineWidth=3; g.beginPath(); g.moveTo(60,146); g.lineTo(W-60,146); g.stroke();
+
+    var cols=4, top=172, bottom=H-50;
+    var nRows=Math.max(1,Math.ceil(rows.length/cols));
+    var cellW=(W-120)/cols;
+    var cellH=Math.min((bottom-top)/nRows, 430);
+    var nameH=54;
+    var boxH=cellH-nameH-14;
+    var boxW=Math.min(cellW-36, boxH*0.75);
+
+    var loads=rows.map(function(r){
+      if(!phHasPhoto(r)) return Promise.resolve(null);
+      return new Promise(function(res){
+        var im=new Image();
+        im.crossOrigin='anonymous';
+        im.onload=function(){ res(im); };
+        im.onerror=function(){ res(null); };
+        im.src=r['عکس'];
+      });
+    });
+
+    Promise.all(loads).then(function(imgs){
+      rows.forEach(function(r,i){
+        var col=i%cols, row=Math.floor(i/cols);
+        var cx=W-60-(col+0.5)*cellW;
+        var y0=top+row*cellH;
+        var bx=cx-boxW/2, by=y0+6;
+        g.save();
+        g.beginPath();
+        if(g.roundRect) g.roundRect(bx,by,boxW,boxH,10); else g.rect(bx,by,boxW,boxH);
+        g.closePath(); g.clip();
+        var im=imgs[i];
+        if(im){
+          var s=Math.max(boxW/im.width, boxH/im.height);
+          var dw=im.width*s, dh=im.height*s;
+          g.drawImage(im, cx-dw/2, by+boxH/2-dh/2, dw, dh);
+        } else {
+          g.fillStyle='#eef2f7'; g.fillRect(bx,by,boxW,boxH);
+          g.fillStyle='#9ca3af';
+          g.beginPath(); g.arc(cx, by+boxH*0.38, boxW*0.18, 0, Math.PI*2); g.fill();
+          g.beginPath(); g.ellipse(cx, by+boxH*0.95, boxW*0.32, boxW*0.26, 0, Math.PI, 0); g.fill();
+        }
+        g.restore();
+        g.strokeStyle='#cbd5e1'; g.lineWidth=2;
+        if(g.roundRect){ g.beginPath(); g.roundRect(bx,by,boxW,boxH,10); g.stroke(); }
+
+        var name=((r['نام']||'')+' '+(r['نام خانوادگی']||'')).trim();
+        g.fillStyle='#111'; g.font='bold 21px Tahoma, Vazirmatn, sans-serif';
+        while(g.measureText(name).width>cellW-16 && name.length>3) name=name.slice(0,-1);
+        g.fillText(name, cx, by+boxH+10);
+        if(!im){
+          g.fillStyle='#991b1b'; g.font='16px Tahoma, sans-serif';
+          g.fillText('بدون عکس', cx, by+boxH+36);
+        }
+      });
+      resolve(c);
+    });
+  });
+}
+
+function phOpenImagesPrint(dataUrls){
+  var w=window.open('','_blank');
+  if(!w){ alert('پنجره چاپ باز نشد. اجازه پاپ‌آپ را بدهید.'); return; }
+  var pages=dataUrls.map(function(u){ return '<div class="pg"><img src="'+u+'"></div>'; }).join('');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>چاپ عکس کلاس‌ها</title><style>'+
+    '@page{size:A4 portrait;margin:0}html,body{margin:0;padding:0}'+
+    '.pg{width:210mm;height:297mm;page-break-after:always;overflow:hidden}'+
+    '.pg:last-child{page-break-after:auto}'+
+    '.pg img{width:210mm;height:297mm;display:block}'+
+    '</style></head><body>'+pages+'</body></html>');
+  w.document.close();
+  setTimeout(function(){ w.focus(); w.print(); }, 600);
+}
+
+async function phClassAction(gi, mode){
+  var grp=(window._phGroups||[])[gi];
+  if(!grp) return;
+  var c=await phClassCanvas(grp.rows, grp.title);
+  if(mode==='print'){
+    phOpenImagesPrint([c.toDataURL('image/png')]);
+  } else if(mode==='download'){
+    var a=document.createElement('a');
+    a.href=c.toDataURL('image/png');
+    a.download=grp.title.replace(/[^\u0600-\u06FFa-zA-Z0-9 _-]/g,'').replace(/\s+/g,'_')+'.png';
+    a.click();
+  } else if(mode==='copy'){
+    if(!(navigator.clipboard && window.ClipboardItem)){ alert('کپی تصویر در این مرورگر پشتیبانی نمی‌شود. از دکمه دانلود استفاده کنید.'); return; }
+    c.toBlob(function(blob){
+      navigator.clipboard.write([new ClipboardItem({'image/png':blob})])
+        .then(function(){ alert('✅ تصویر کپی شد. حالا می‌توانید در پیام‌رسان Paste کنید.'); })
+        .catch(function(){ alert('❌ کپی تصویر ممکن نشد. از دکمه دانلود استفاده کنید.'); });
+    },'image/png');
+  }
+}
+
+// چاپ همه کلاس‌های فیلتر: هر کلاس یک برگه A4
+async function printPhotoGrid(){
+  var groups=phGroupsNow();
+  if(!groups.length){ alert('دانش‌آموزی برای چاپ وجود ندارد'); return; }
+  var urls=[];
+  for(var i=0;i<groups.length;i++){
+    var c=await phClassCanvas(groups[i].rows, groups[i].title);
+    urls.push(c.toDataURL('image/png'));
+  }
+  phOpenImagesPrint(urls);
+}
+
+function printNoPhotoList(){
+  var noP=phFiltered().filter(function(r){return !phHasPhoto(r);});
+  if(!noP.length){ alert('همه دانش‌آموزان این فیلتر عکس دارند'); return; }
+  phOpenPrint('دانش‌آموزان بدون عکس', phNoPhotoTable(noP));
+}
+function phOpenPrint(title, bodyHtml){
+  var w=window.open('','_blank');
+  if(!w){ alert('پنجره چاپ باز نشد. اجازه پاپ‌آپ را بدهید.'); return; }
+  w.document.write('<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>'+title+'</title><style>'+
+    'body{font-family:Tahoma,Vazirmatn,sans-serif;direction:rtl;color:#111;padding:6mm;font-size:10pt}'+
+    '@page{size:A4;margin:8mm}'+
+    'h2{text-align:center;font-size:14pt;margin-bottom:4mm}'+
+    'table{border-collapse:collapse;width:100%}th,td{border:1px solid #333;padding:3px 5px;font-size:9pt;text-align:center}th{background:#e0e7ff;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+    'tr{page-break-inside:avoid}'+
+    '</style></head><body><h2>'+title+'</h2>'+bodyHtml+'</body></html>');
+  w.document.close();
+  setTimeout(function(){ w.focus(); w.print(); }, 500);
+}
+function exportNoPhotoCSV(){
+  var noP=phFiltered().filter(function(r){return !phHasPhoto(r);});
+  if(!noP.length){ alert('همه دانش‌آموزان این فیلتر عکس دارند'); return; }
+  var head=['پایه','شماره کلاس','نام','نام خانوادگی','موبایل پدر'];
+  var lines=[head.join(',')].concat(noP.map(function(r){
+    return head.map(function(k){ var v=k==='شماره کلاس'?phNum(r[k]):(r[k]||''); return '"'+String(v).replace(/"/g,'""')+'"'; }).join(',');
+  }));
+  var blob=new Blob(['\uFEFF'+lines.join('\n')],{type:'text/csv;charset=utf-8;'});
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='بدون_عکس.csv'; a.click();
+}
+
+
+// ===================== دانلود عکس‌ها به‌صورت فایل ZIP با نام دانش‌آموز =====================
+var _crcTable=null;
+function crc32Bytes(bytes){
+  if(!_crcTable){
+    _crcTable=new Uint32Array(256);
+    for(var n=0;n<256;n++){
+      var c=n;
+      for(var k=0;k<8;k++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);
+      _crcTable[n]=c>>>0;
+    }
+  }
+  var crc=0xFFFFFFFF;
+  for(var i=0;i<bytes.length;i++) crc=_crcTable[(crc^bytes[i])&0xFF]^(crc>>>8);
+  return (crc^0xFFFFFFFF)>>>0;
+}
+function zipStore(files){
+  var enc=new TextEncoder(), parts=[], central=[], offset=0;
+  files.forEach(function(f){
+    var nameB=enc.encode(f.name), crc=crc32Bytes(f.data), size=f.data.length;
+    var lh=new Uint8Array(30+nameB.length), dv=new DataView(lh.buffer);
+    dv.setUint32(0,0x04034b50,true); dv.setUint16(4,20,true); dv.setUint16(6,0x0800,true);
+    dv.setUint16(8,0,true); dv.setUint16(10,0,true); dv.setUint16(12,0,true);
+    dv.setUint32(14,crc,true); dv.setUint32(18,size,true); dv.setUint32(22,size,true);
+    dv.setUint16(26,nameB.length,true); dv.setUint16(28,0,true); lh.set(nameB,30);
+    parts.push(lh,f.data);
+    var ch=new Uint8Array(46+nameB.length), cv=new DataView(ch.buffer);
+    cv.setUint32(0,0x02014b50,true); cv.setUint16(4,20,true); cv.setUint16(6,20,true); cv.setUint16(8,0x0800,true);
+    cv.setUint16(10,0,true); cv.setUint16(12,0,true); cv.setUint16(14,0,true);
+    cv.setUint32(16,crc,true); cv.setUint32(20,size,true); cv.setUint32(24,size,true);
+    cv.setUint16(28,nameB.length,true); cv.setUint16(30,0,true); cv.setUint16(32,0,true);
+    cv.setUint16(34,0,true); cv.setUint16(36,0,true); cv.setUint32(38,0,true); cv.setUint32(42,offset,true);
+    ch.set(nameB,46); central.push(ch);
+    offset+=lh.length+size;
+  });
+  var cdSize=central.reduce(function(a,b){return a+b.length;},0);
+  var end=new Uint8Array(22), ev=new DataView(end.buffer);
+  ev.setUint32(0,0x06054b50,true); ev.setUint16(8,files.length,true); ev.setUint16(10,files.length,true);
+  ev.setUint32(12,cdSize,true); ev.setUint32(16,offset,true);
+  return new Blob(parts.concat(central,[end]),{type:'application/zip'});
+}
+function phDataUrlToBytes(u){
+  var m=u.match(/^data:([^;]+);base64,(.*)$/);
+  if(!m) return null;
+  var bin=atob(m[2]), out=new Uint8Array(bin.length);
+  for(var i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i);
+  return {mime:m[1], bytes:out};
+}
+function phSafeName(t){
+  return String(t||'').replace(/[\\\/:*?"<>|\r\n]/g,'').replace(/\s+/g,' ').trim();
+}
+async function downloadPhotosZip(){
+  var rows=phFiltered().filter(phHasPhoto);
+  if(!rows.length){ alert('دانش‌آموزی با عکس در این فیلتر وجود ندارد'); return; }
+  var files=[], failed=0, used={};
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i], u=r['عکس'], got=null;
+    try{
+      if(u.indexOf('data:')===0){ got=phDataUrlToBytes(u); }
+      else {
+        var res=await fetch(u);
+        if(res.ok){ var buf=await res.arrayBuffer(); got={mime:res.headers.get('content-type')||'image/jpeg', bytes:new Uint8Array(buf)}; }
+      }
+    }catch(e){ got=null; }
+    if(!got){ failed++; continue; }
+    var ext=/png/.test(got.mime)?'png':(/webp/.test(got.mime)?'webp':'jpg');
+    var base=phSafeName('پایه '+(r['پایه']||'')+' کلاس '+phNum(r['شماره کلاس'])+' '+(r['نام']||'')+' '+(r['نام خانوادگی']||''));
+    var name=base, k=2;
+    while(used[name]){ name=base+' ('+k+')'; k++; }
+    used[name]=true;
+    files.push({name: name+'.'+ext, data: got.bytes});
+  }
+  if(!files.length){ alert('عکسی برای دانلود پیدا نشد'); return; }
+  var zip=zipStore(files);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(zip);
+  var pay=document.getElementById('phPaye').value, cl=document.getElementById('phClass').value;
+  a.download='عکس_دانش_آموزان'+(pay?'_'+pay:'')+(cl?'_کلاس'+cl:'')+'.zip';
+  a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 60000);
+  alert('✅ '+files.length+' عکس در فایل ZIP ذخیره شد'+(failed?' ('+failed+' عکس دانلود نشد)':''));
 }
 
 function switchTab(id, btn) {
